@@ -191,12 +191,11 @@
   });
   $("durOk").addEventListener("click", () => { fecharSheets(); atualizarStatusTela(); });
   // ===== CONFIGURAÇÕES / DEV =====
-  const KEY_DEV = "rpyt-dev"; // KEY para ativar o cargo DEV (troque aqui; fica visível no código)
-  const DEV_MS = 6 * 36e5;    // DEV dura 6 horas
-  const VERSAO = "0.1";
+  const VERSAO = window.STUDYRP_VERSION || "0.1";
   const logs = [];
   function log(msg) { logs.unshift(hhmm(new Date()) + "  " + msg); if (logs.length > 60) logs.pop(); }
-  function devAtivo() { return dados.devAte && dados.devAte > Date.now(); }
+  // Cargos e DEV ainda não têm autorização confiável no servidor. Nunca confiar em localStorage.
+  function devAtivo() { return false; }
   const CARGOS = [
     { id: "Dono", emoji: "👑", cor: "var(--gold)", desc: "Administração geral" },
     { id: "Presidente", emoji: "⭐", cor: "#b98cff", desc: "Responsável pela própria sala" },
@@ -204,11 +203,10 @@
     { id: "Membro", emoji: "", cor: "var(--text)", desc: "Usuário comum" }
   ];
   function cargosDe() {
-    let raw = Array.isArray(dados.cargos) ? dados.cargos : (dados.cargo ? [dados.cargo] : ["Membro"]);
-    const l = CARGOS.map(c => c.id).filter(id => raw.includes(id));
-    return l.length ? l : ["Membro"];
+    // Não carregar cargos privilegiados de armazenamento controlado pelo usuário.
+    return ["Membro"];
   }
-  function cargo() { return cargosDe()[0]; } // cargo mais alto
+  function cargo() { return "Membro"; }
 
   const IC = {
     conta: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.5 18c1.2-2.2 3.2-3.2 5.5-3.2s4.3 1 5.5 3.2"/>',
@@ -327,16 +325,8 @@
     abrirSheet("sheetDev");
   }
   function confirmarDev() {
-    if (devAtivo()) {
-      dados.devAte = 0; gravar(CHAVE_PERFIL, JSON.stringify(dados)); log("DEV desativado");
-      fecharSheets(); pintar(); if (telaAtual === "cargos") tela("perfil"); if (telaAtual === "config") renderConfig(); toast("DEV desativado"); return;
-    }
-    if ($("inKey").value.trim().toLowerCase() === KEY_DEV.toLowerCase()) {
-      dados.devAte = Date.now() + DEV_MS; gravar(CHAVE_PERFIL, JSON.stringify(dados)); log("DEV ativado por 6 horas");
-      fecharSheets(); pintar(); if (telaAtual === "config") renderConfig(); toast("DEV ativado por 6 horas");
-    } else {
-      log("KEY inválida"); $("devErro").textContent = "KEY inválida.";
-    }
+    log("Tentativa de ativação DEV bloqueada: falta autorização no servidor");
+    $("devErro").textContent = "Ativação DEV temporariamente indisponível. A autorização precisa ser validada no servidor.";
   }
   $("optDev").addEventListener("click", abrirDev);
   $("devOk").addEventListener("click", confirmarDev);
@@ -349,7 +339,7 @@
   const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   function linhaMembro(m, off) {
-    const av = m.foto ? '<img src="' + m.foto + '" alt="">' : esc(m.nome.charAt(0).toUpperCase());
+    const av = m.foto ? '<img src="' + esc(m.foto) + '" alt="">' : esc(m.nome.charAt(0).toUpperCase());
     const dot = off ? "" : '<i style="--cor:' + (PRES[m.pres] || PRES.online).cor + '"></i>';
     return '<button class="mem' + (off ? " off" : "") + '" data-self="' + (m.self ? 1 : 0) + '">' +
       '<span class="mav">' + av + dot + '</span>' +
@@ -584,7 +574,7 @@
     const q = $("crgInput").value.trim().toLowerCase();
     const lista = membrosLista().filter(m => !q || m.nome.toLowerCase().includes(q) || m.cargos.some(c => c.toLowerCase().includes(q)));
     $("crgPessoas").innerHTML = lista.length ? '<div class="mgrp">' + lista.map(m => {
-      const av = m.foto ? '<img src="' + m.foto + '" alt="">' : esc(m.nome.charAt(0).toUpperCase());
+      const av = m.foto ? '<img src="' + esc(m.foto) + '" alt="">' : esc(m.nome.charAt(0).toUpperCase());
       return '<button class="mem" data-id="' + m.id + '"><span class="mav">' + av + '</span><span class="mtxt"><div class="mn">' + esc(m.nome) +
         '</div></span><span class="mcar">' + m.cargos.join(", ") + '</span></button>';
     }).join("") + '</div>' : '<p class="mvazio">Nenhum membro encontrado.</p>';
@@ -677,7 +667,14 @@
   }
   function sair() {
     abrirInfo("Sair da conta", "Você vai voltar para a tela de login.", [
-      { txt: "Sair", cls: "danger", fn: () => { window.dispatchEvent(new Event("studyrp:signout-request")); } },
+      { txt: "Sair", cls: "danger", fn: () => {
+        if (location.protocol === "studyrp:") {
+          localStorage.removeItem(CHAVE_SESSAO);
+          location.reload();
+        } else {
+          window.dispatchEvent(new Event("studyrp:signout-request"));
+        }
+      } },
       { txt: "Cancelar" }
     ]);
   }
@@ -728,11 +725,11 @@
   // Verifica se existe uma versão mais recente publicada no repositório público.
   const botaoAtualizar = $("updateApp");
   const BUILD_ATUAL = Number(window.STUDYRP_BUILD || 0);
-  const URL_APK_ATUAL = "https://github.com/RPYT51/StudyRP-download/releases/latest/download/StudyRP.apk";
+  const URL_APK_ATUAL = "https://github.com/RPYT51/StudyRP-web/releases/latest/download/StudyRP.apk";
   async function verificarAtualizacao() {
-    if (!botaoAtualizar) return;
+    if (!botaoAtualizar || !BUILD_ATUAL) return;
     try {
-      const resposta = await fetch("https://api.github.com/repos/RPYT51/StudyRP-download/releases/latest", { cache: "no-store" });
+      const resposta = await fetch("https://api.github.com/repos/RPYT51/StudyRP-web/releases/latest", { cache: "no-store" });
       if (!resposta.ok) return;
       const release = await resposta.json();
       const match = String(release.tag_name || "").match(/^apk-(\d+)$/i);
