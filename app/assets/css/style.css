@@ -491,3 +491,126 @@
 }
 header .top { position: relative; }
 .update-btn:active { transform: translateY(-50%) scale(.97); }
+
+
+/* ===== EXPERIÊNCIA DESKTOP ===== */
+@media (min-width: 760px) {
+  body { align-items: stretch; }
+  .app, .picker {
+    width: min(1180px, calc(100% - 64px));
+    max-width: none;
+    min-height: 100dvh;
+    margin-inline: auto;
+    padding: 42px 0 32px;
+    gap: 28px;
+  }
+  .app { display: flex; }
+  .app header {
+    padding: 8px 4px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .app header .top { justify-content: flex-start; min-height: 56px; }
+  .app header h1 { font-size: clamp(2rem, 3vw, 2.7rem); text-align: left; }
+  .app .when { margin: 0 4px 0 auto; text-align: right; }
+  .app .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+    align-content: start;
+  }
+  .app .grid .btn {
+    min-height: 178px;
+    margin-top: 0;
+    border-radius: 22px;
+    padding: 26px;
+    font-size: 1.08rem;
+    letter-spacing: .8px;
+    gap: 18px;
+  }
+  .app .grid .btn svg { width: 38px; height: 38px; }
+  .app[data-estilo="1"] .grid .btn { flex-direction: column; justify-content: center; }
+  .app .grid .wide {
+    grid-column: auto;
+    min-height: 178px;
+    flex-direction: column;
+  }
+  .app[data-estilo="2"] .grid .btn {
+    grid-column: auto;
+    min-height: 178px;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .app .profile {
+    width: 100%;
+    max-width: none;
+    margin-top: auto;
+    padding: 18px 22px;
+    border-radius: 20px;
+  }
+  .app .avatar { width: 58px; height: 58px; }
+  .app .who b { font-size: 1.2rem; }
+  .app .bell { width: 50px; height: 50px; cursor: pointer; }
+  .perfil, .cfg, .stscreen {
+    width: min(960px, calc(100% - 64px));
+    max-width: none;
+    min-height: calc(100dvh - 64px);
+    margin: 32px auto;
+    padding: 28px 34px;
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    overflow-y: auto;
+  }
+  .perfil .vstack, .perfil #edit { max-width: 720px; margin-inline: auto; }
+  .cfg #cfgCorpo, .cfg #subCorpo, .cfg #pessCorpo, .cfg #crgPessoas { max-width: 780px; margin-inline: auto; }
+  .picker {
+    width: min(900px, calc(100% - 64px));
+    align-content: center;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+  }
+  .picker h2 { font-size: 2rem; }
+  .picker p.sub { max-width: 620px; margin-inline: auto; }
+  .picker .opt { padding: 18px; border-radius: 20px; }
+  .picker .mini { min-height: 150px; padding: 14px; gap: 8px; }
+  .picker .mini i { height: 18px; }
+  .picker .mini .t { height: 9px; }
+  .picker .mini .t2 { height: 7px; }
+  .picker .mini .p { height: 14px; }
+  .picker .m1 .tall { height: 38px; }
+  .picker .opt b { font-size: 1rem; }
+  .picker .opt small { font-size: .85rem; }
+  .auth {
+    width: 100%;
+    max-width: none;
+    min-height: 100dvh;
+    justify-content: center;
+    padding: 48px;
+  }
+  .authbox {
+    width: min(480px, 100%);
+    padding: 38px;
+    gap: 20px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 26px;
+    box-shadow: 0 24px 80px rgba(0,0,0,.24);
+  }
+  .alogo { font-size: 2.6rem; }
+  .authbox .box { padding: 0; background: transparent; }
+  .gbtn, .authbox .primary, .atabs button { min-height: 48px; }
+  button { transition: filter .15s ease, transform .15s ease, border-color .15s ease; }
+  button:focus-visible, input:focus-visible, textarea:focus-visible, label:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 3px;
+  }
+  .sheet { width: min(560px, calc(100% - 40px)); left: 50%; transform: translateX(-50%); border: 1px solid var(--line); border-radius: 22px 22px 0 0; }
+}
+@media (min-width: 1200px) {
+  .app .grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .app .grid .btn, .app .grid .wide, .app[data-estilo="2"] .grid .btn { min-height: 190px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
