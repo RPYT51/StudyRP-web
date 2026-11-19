@@ -25,9 +25,24 @@
      if(!response.ok)throw new Error('Release ainda não publicado');
      const release=await response.json();
      if(version)version.textContent=release.tag_name?`Versão ${release.tag_name}`:'Última versão disponível';
-     const apk=(release.assets||[]).find(asset=>asset.name==='StudyRP.apk');
-     if(apk)document.querySelectorAll('[data-download="android"]').forEach(link=>{link.href=apk.browser_download_url});
-   }catch(_){if(version)version.textContent='Versão mais recente'}
+     const filenames = {
+       android: 'StudyRP.apk',
+       windows: 'StudyRP-x64.exe',
+       debian: 'StudyRP-amd64.deb',
+       flatpak: 'StudyRP-x86_64.flatpak'
+     };
+     for (const [platform, filename] of Object.entries(filenames)) {
+       const asset = (release.assets || []).find(candidate => candidate.name === filename);
+       if (!asset) continue;
+       document.querySelectorAll(`[data-download="${platform}"]`).forEach(link => {
+         link.href = asset.browser_download_url;
+         link.hidden = false;
+       });
+       document.querySelectorAll(`[data-unavailable="${platform}"]`).forEach(label => {
+         label.hidden = true;
+       });
+     }
+   }catch(_){if(version)version.textContent='Versão indisponível'}
  }
  loadLatestRelease();
  if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
