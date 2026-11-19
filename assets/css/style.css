@@ -36,3 +36,5 @@
 .modal-continue{width:100%;margin-top:5px}
 @media(max-width:800px){.browser-access{align-items:flex-start;flex-direction:column;margin:-24px 0 52px}.ios-steps{grid-template-columns:1fr}.ios-step{display:grid;grid-template-columns:120px 1fr;gap:13px;align-items:center}.step-visual{height:125px}.ios-modal{padding:25px 20px}}
 @media(max-width:480px){.browser-access{padding:22px}.browser-button{width:100%}.ios-modal{padding:24px 17px}.ios-step{grid-template-columns:105px 1fr}.step-visual{height:118px;padding:8px}}
+
+.download-button[hidden], [data-unavailable][hidden] { display: none; }
