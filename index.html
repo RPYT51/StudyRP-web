@@ -8,16 +8,35 @@
 <title>StudyRP — Downloads</title>
 </head>
 <body>
-<header class="site-header"><a class="brand" href="./"><img src="assets/img/icon.svg" alt="" width="42" height="42"><span>Study<span>RP</span></span></a><a class="github-link" href="https://github.com/RPYT51/StudyRP" target="_blank" rel="noopener">Código do projeto ↗</a></header>
+<header class="site-header"><a class="brand" href="./"><img src="assets/img/icon.svg" alt="" width="42" height="42"><span>Study<span>RP</span></span></a><a class="github-link" href="https://github.com/RPYT51/StudyRP-web" target="_blank" rel="noopener">Projeto RPYT51 ↗</a></header>
 <main>
 <section class="hero"><div class="eyebrow"><span class="pulse"></span> CENTRAL DE DOWNLOADS</div><h1>Seus estudos.<br><span>Do seu jeito.</span></h1><p>Leve o StudyRP com você. Escolha seu dispositivo para encontrar a versão certa.</p><div class="hero-meta"><span>✦ Gratuito</span><span>✦ Projeto RPYT51</span><span id="release-version">Consultando versão…</span></div></section>
+<section class="browser-access" aria-labelledby="browser-title">
+  <div><span class="eyebrow">SEM INSTALAR</span><h2 id="browser-title">Quer continuar agora?</h2><p>Abra o StudyRP diretamente no navegador do computador, tablet ou celular.</p></div>
+  <a class="browser-button" id="browserContinue" href="./app/">Continuar no navegador <span>↗</span></a>
+</section>
 <section class="downloads"><div class="section-heading"><div><span class="eyebrow">DISPONIBILIDADE</span><h2>Onde você vai usar?</h2></div><div class="device-detected" id="device-detected">Detectando dispositivo…</div></div>
 <div class="device-grid">
 <article class="device-card" data-device="desktop"><div class="device-icon">⌘</div><div class="device-copy"><h3>Computador</h3><p>Windows e distribuições Linux.</p></div><div class="platform-list"><div class="platform"><span><b>Windows</b><small>Instalador .exe</small></span><button class="soon" disabled>Em breve</button></div><div class="platform"><span><b>Linux</b><small>.deb e Flatpak</small></span><button class="soon" disabled>Em breve</button></div></div></article>
-<article class="device-card featured" data-device="mobile"><div class="recommended">DISPONÍVEL AGORA</div><div class="device-icon">▯</div><div class="device-copy"><h3>Celular</h3><p>Android e iPhone.</p></div><div class="platform-list"><div class="platform"><span><b>Android</b><small>Aplicativo APK</small></span><a class="download-button" data-download="android" href="https://github.com/RPYT51/StudyRP-download/releases/latest/download/StudyRP.apk">Baixar <span>↓</span></a></div><div class="platform"><span><b>iPhone</b><small>iOS / App Store</small></span><button class="soon" disabled>Em breve</button></div></div></article>
-<article class="device-card" data-device="tablet"><div class="device-icon">▣</div><div class="device-copy"><h3>Tablet</h3><p>Android e iPad.</p></div><div class="platform-list"><div class="platform"><span><b>Android</b><small>Aplicativo APK</small></span><a class="download-button" data-download="android" href="https://github.com/RPYT51/StudyRP-download/releases/latest/download/StudyRP.apk">Baixar <span>↓</span></a></div><div class="platform"><span><b>iPad</b><small>iPadOS / App Store</small></span><button class="soon" disabled>Em breve</button></div></div></article>
+<article class="device-card featured" data-device="mobile"><div class="recommended">DISPONÍVEL AGORA</div><div class="device-icon">▯</div><div class="device-copy"><h3>Celular</h3><p>Android e iPhone.</p></div><div class="platform-list"><div class="platform"><span><b>Android</b><small>Aplicativo APK</small></span><a class="download-button" data-download="android" href="https://github.com/RPYT51/StudyRP-web/releases/latest/download/StudyRP.apk">Baixar <span>↓</span></a></div><div class="platform"><span><b>iPhone</b><small>iOS / App Store</small></span><button class="guide-button" type="button" data-ios-guide>Como usar ↗</button></div></div></article>
+<article class="device-card" data-device="tablet"><div class="device-icon">▣</div><div class="device-copy"><h3>Tablet</h3><p>Android e iPad.</p></div><div class="platform-list"><div class="platform"><span><b>Android</b><small>Aplicativo APK</small></span><a class="download-button" data-download="android" href="https://github.com/RPYT51/StudyRP-web/releases/latest/download/StudyRP.apk">Baixar <span>↓</span></a></div><div class="platform"><span><b>iPad</b><small>iPadOS / App Store</small></span><button class="guide-button" type="button" data-ios-guide>Como usar ↗</button></div></div></article>
 </div></section>
-<section class="help-panel"><div><span class="eyebrow">PRECISA DE AJUDA?</span><h2>Instalando no Android</h2><p>Baixe o APK, abra o arquivo e siga as instruções do Android. Se aparecer um aviso, autorize a instalação para o navegador ou gerenciador de arquivos que você utilizou.</p></div><a href="https://github.com/RPYT51/StudyRP-download/releases" target="_blank" rel="noopener">Ver todas as versões ↗</a></section>
+<section class="help-panel"><div><span class="eyebrow">PRECISA DE AJUDA?</span><h2>Instalando no Android</h2><p>Baixe o APK, abra o arquivo e siga as instruções do Android. Se aparecer um aviso, autorize a instalação para o navegador ou gerenciador de arquivos que você utilizou.</p></div><a href="https://github.com/RPYT51/StudyRP-web/releases" target="_blank" rel="noopener">Ver todas as versões ↗</a></section>
+<div class="modal-backdrop" id="iosGuide" hidden>
+  <section class="ios-modal" role="dialog" aria-modal="true" aria-labelledby="ios-title">
+    <button class="modal-close" type="button" id="closeIosGuide" aria-label="Fechar">×</button>
+    <span class="eyebrow">STUDYRP NO IPHONE</span>
+    <h2 id="ios-title">Adicione à Tela de Início</h2>
+    <p class="ios-intro">No iPhone e iPad, você pode abrir o StudyRP pelo Safari e criar um ícone para acessar como um app.</p>
+    <div class="ios-steps">
+      <article class="ios-step"><div class="step-visual share-visual"><div class="phone-top">Safari <span>•••</span></div><div class="fake-page"></div><div class="share-symbol">↑</div><div class="visual-caption">Compartilhar</div></div><div><b>1. Abra no Safari</b><p>Acesse o site do StudyRP e toque no botão Compartilhar.</p></div></article>
+      <article class="ios-step"><div class="step-visual add-visual"><div class="menu-line"><span class="mini-icon">＋</span><b>Adicionar à Tela de Início</b></div><div class="menu-line faint"><span class="mini-icon">↗</span>Adicionar aos Favoritos</div></div><div><b>2. Adicione à Tela de Início</b><p>Se necessário, role as opções para encontrar essa opção.</p></div></article>
+      <article class="ios-step"><div class="step-visual home-visual"><div class="app-icon">S<span>RP</span></div><b>StudyRP</b></div><div><b>3. Abra pelo ícone</b><p>O StudyRP ficará disponível na tela inicial do iPhone.</p></div></article>
+    </div>
+    <p class="ios-note">Você também pode continuar sem adicionar o ícone.</p>
+    <a class="browser-button modal-continue" href="./app/">Continuar no navegador <span>↗</span></a>
+  </section>
+</div>
 </main><footer><span>© <span id="year"></span> StudyRP · RPYT51</span><span>Feito para estudar melhor.</span></footer>
 <script src="assets/js/app.js" defer></script>
 </body></html>
