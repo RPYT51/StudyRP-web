@@ -677,7 +677,7 @@
   }
   function sair() {
     abrirInfo("Sair da conta", "Você vai voltar para a tela de login.", [
-      { txt: "Sair", cls: "danger", fn: () => { try { localStorage.removeItem(CHAVE_SESSAO); } catch (e) {} location.reload(); } },
+      { txt: "Sair", cls: "danger", fn: () => { window.dispatchEvent(new Event("studyrp:signout-request")); } },
       { txt: "Cancelar" }
     ]);
   }
@@ -685,7 +685,29 @@
   $("tabCriar").addEventListener("click", () => setModoAuth("criar"));
   $("auOk").addEventListener("click", enviarAuth);
   ["auNome", "auUser", "auSenha", "auSenha2"].forEach(id => $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") enviarAuth(); }));
-  $("auGoogle").addEventListener("click", () => toast("Login com Google ainda não está conectado"));
+  window.addEventListener("studyrp:google-user", (event) => {
+    const user = event.detail;
+    if (!user || !user.uid) return;
+    const userKey = "google_" + user.uid;
+    if (ler(CHAVE_SESSAO) === userKey) return;
+    const todas = contas();
+    todas[userKey] = { provider: "google", email: user.email || "", uid: user.uid };
+    gravar(CHAVE_CONTAS, JSON.stringify(todas));
+    if (!ler("studyrp-perfil-" + userKey)) {
+      gravar("studyrp-perfil-" + userKey, JSON.stringify({
+        nome: user.displayName || (user.email ? user.email.split("@")[0] : "Estudante"),
+        usuario: userKey,
+        foto: user.photoURL || "",
+        desde: new Date().toISOString()
+      }));
+    }
+    gravar(CHAVE_SESSAO, userKey);
+    location.reload();
+  });
+  window.addEventListener("studyrp:signout-complete", () => {
+    try { localStorage.removeItem(CHAVE_SESSAO); } catch (e) {}
+    location.reload();
+  });
 
   // botão "voltar" do Android (usado pelo app em APK)
   window.androidBack = function () {
