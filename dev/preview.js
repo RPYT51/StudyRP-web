@@ -18,10 +18,15 @@
       const release = await response.json();
       version.textContent = `Versão ${release.tag_name}`;
       const filenames = { win: "StudyRP-x64.exe", deb: "StudyRP-amd64.deb", flatpak: "StudyRP-x86_64.flatpak", android: "StudyRP.apk" };
+      const uploaded = release.assets.filter(item => item.state === "uploaded");
       for (const [platform, filename] of Object.entries(filenames)) {
-        const asset = release.assets.find(item => item.name === filename && item.state === "uploaded");
+        const asset = uploaded.find(item => item.name === filename) ||
+          (platform === "android" && uploaded.find(item => item.name === "StudyRP-debug.apk"));
         if (!asset) continue;
         const link = document.querySelector(`[data-download="${platform}"]`);
+        if (asset.name === "StudyRP-debug.apk") {
+          document.querySelector("#android-build").textContent = "APK de teste";
+        }
         link.href = asset.browser_download_url;
         link.hidden = false;
         document.querySelector(`[data-unavailable="${platform}"]`).hidden = true;
