@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#101d3a">
+  <link rel="icon" href="../assets/img/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <title>StudyRP — Prévia</title>
+  <script src="../assets/js/dev-access.js" defer></script>
+  <script src="./preview.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../"><img src="../assets/img/icon.svg" alt="" width="42" height="42"><span>Study<span>RP</span></span></a>
+  </header>
+  <main>
+    <section class="hero">
+      <h1>Prévia do <span>StudyRP</span></h1>
+      <form id="preview-form" class="preview-panel">
+        <label for="preview-code">Código de acesso</label>
+        <input id="preview-code" type="password" autocomplete="off" required>
+        <button class="browser-button" type="submit">Entrar</button>
+        <p id="preview-status" role="status"></p>
+      </form>
+    </section>
+    <section id="preview-access" class="browser-access" hidden>
+      <div><h2>Versão Web</h2><a id="open-web" class="browser-button">Abrir StudyRP Web ↗</a></div>
+      <button id="lock-preview" class="guide-button" type="button">Bloquear prévia</button>
+    </section>
+    <section id="preview-downloads" class="downloads" hidden>
+      <div class="section-heading"><div><h2>Downloads</h2><p id="preview-version" role="status"></p></div></div>
+      <div class="platform-list">
+        <div class="platform"><span><b>Windows</b><small>EXE · x64</small></span><span class="soon" data-unavailable="win">Em breve</span><a class="download-button" data-download="win" hidden>Baixar ↓</a></div>
+        <div class="platform"><span><b>Debian e Ubuntu</b><small>DEB · amd64</small></span><span class="soon" data-unavailable="deb">Em breve</span><a class="download-button" data-download="deb" hidden>Baixar ↓</a></div>
+        <div class="platform"><span><b>Linux</b><small>Flatpak · x86_64</small></span><span class="soon" data-unavailable="flatpak">Em breve</span><a class="download-button" data-download="flatpak" hidden>Baixar ↓</a></div>
+        <div class="platform"><span><b>Android</b><small>APK</small></span><span class="soon" data-unavailable="android">Em breve</span><a class="download-button" data-download="android" hidden>Baixar ↓</a></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

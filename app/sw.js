@@ -1,11 +1,9 @@
-const CACHE = "studyrp-app-8";
-const CORE = ["./", "./index.html", "./assets/css/style.css", "./assets/js/app.js", "./manifest.webmanifest", "./apple-touch-icon.png"];
-self.addEventListener("install", event => event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(CORE))));
-self.addEventListener("activate", event => event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith("studyrp-app-") && key !== CACHE).map(key => caches.delete(key))))));
-self.addEventListener("fetch", event => {
-  if (event.request.method !== "GET" || new URL(event.request.url).origin !== location.origin) return;
-  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
-    if (response.ok) caches.open(CACHE).then(cache => cache.put(event.request, response.clone()));
-    return response;
-  })));
+// Retira o cache offline da versão pública enquanto a prévia estiver fechada.
+self.addEventListener("install", event => event.waitUntil(self.skipWaiting()));
+self.addEventListener("activate", event => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(key => key.startsWith("studyrp-app-")).map(key => caches.delete(key)));
+    await self.registration.unregister();
+  })());
 });

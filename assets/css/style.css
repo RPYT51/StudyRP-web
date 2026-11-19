@@ -38,3 +38,9 @@
 @media(max-width:480px){.browser-access{padding:22px}.browser-button{width:100%}.ios-modal{padding:24px 17px}.ios-step{grid-template-columns:105px 1fr}.step-visual{height:118px;padding:8px}}
 
 .download-button[hidden], [data-unavailable][hidden] { display: none; }
+
+[hidden] { display: none !important; }
+.preview-panel { display: grid; gap: 12px; max-width: 420px; margin-top: 22px; }
+.preview-panel input { width: 100%; color: inherit; background: #101d3a; border: 1px solid #7890b7; border-radius: 10px; padding: 12px; font: inherit; }
+.preview-panel button { justify-self: start; }
+.preview-panel p:empty { display: none; }
