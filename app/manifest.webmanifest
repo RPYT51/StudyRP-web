@@ -1,0 +1,17 @@
+{
+  "name": "StudyRP",
+  "short_name": "StudyRP",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#2b2d31",
+  "theme_color": "#2b2d31",
+  "icons": [
+    {
+      "src": "./apple-touch-icon.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
