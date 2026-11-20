@@ -333,47 +333,234 @@
   $("devOk").addEventListener("click", confirmarDev);
   $("inKey").addEventListener("keydown", (e) => { if (e.key === "Enter") confirmarDev(); });
 
-  // ===== PESSOAS =====
-  const ORDEM = CARGOS.map(c => c.id);
-  const EMOJI = Object.fromEntries(CARGOS.map(c => [c.id, c.emoji]));
-  const COR_CARGO = Object.fromEntries(CARGOS.map(c => [c.id, c.cor]));
   const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-  function linhaMembro(m, off) {
-    const av = m.foto ? '<img src="' + esc(m.foto) + '" alt="">' : esc(m.nome.charAt(0).toUpperCase());
-    const dot = off ? "" : '<i style="--cor:' + (PRES[m.pres] || PRES.online).cor + '"></i>';
-    return '<button class="mem' + (off ? " off" : "") + '" data-self="' + (m.self ? 1 : 0) + '">' +
-      '<span class="mav">' + av + dot + '</span>' +
-      '<span class="mtxt"><div class="mn" style="' + (off ? "" : "color:" + COR_CARGO[m.cargo]) + '">' + esc(m.nome) + '</div>' +
-      (m.status && !off ? '<div class="ms">' + esc(m.status) + '</div>' : '') + '</span></button>';
+  function social() {
+    if (contas()[SESSAO]?.provider !== "google" || !window.StudyRPSocial) {
+      throw new Error("Entre com uma conta Google cadastrada na nuvem para usar este recurso.");
+    }
+    return window.StudyRPSocial;
   }
 
-  function renderPessoas() {
-    const q = $("pessInput").value.trim().toLowerCase();
-    const todos = [{ nome: dados.nome, cargo: cargo(), cargos: cargosDe(), pres: dados.presenca, status: dados.status, foto: dados.foto, self: true }];
-    const membros = todos.filter(m => !q || m.nome.toLowerCase().includes(q) || m.cargos.some(c => c.toLowerCase().includes(q)));
-    const on = membros.filter(m => m.pres !== "invisivel"), off = membros.filter(m => m.pres === "invisivel");
-    let h = "";
-    ORDEM.forEach(c => {
-      const g = on.filter(m => m.cargo === c);
-      if (g.length) h += '<div class="mlabel">' + (EMOJI[c] ? EMOJI[c] + " " : "") + c + " — " + g.length + '</div><div class="mgrp">' + g.map(m => linhaMembro(m, false)).join("") + '</div>';
-    });
-    if (off.length) h += '<div class="mlabel">Offline — ' + off.length + '</div><div class="mgrp">' + off.map(m => linhaMembro(m, true)).join("") + '</div>';
-    if (!membros.length) h += '<p class="mvazio">Nenhum membro encontrado.</p>';
-    else if (todos.length === 1 && !q) h += '<p class="mvazio">Mais pessoas vão aparecer aqui quando entrarem.</p>';
-    $("pessCorpo").innerHTML = h;
-    $("pessCorpo").querySelectorAll(".mem").forEach(b => b.addEventListener("click", () => {
-      if (b.dataset.self === "1") { pintar(); modoPerfil(false); tela("perfil"); }
-    }));
+  function painelSocial(titulo, voltar = () => tela("app")) {
+    $("painelSocialTitulo").textContent = titulo;
+    $("pessFechar").onclick = voltar;
+    $("adicionarAmigo").classList.toggle("hidden", titulo !== "Amigos");
+    $("pessCorpo").replaceChildren();
+    tela("pessoas");
+    return $("pessCorpo");
   }
-  $("btnPessoas").addEventListener("click", () => { renderPessoas(); tela("pessoas"); });
-  $("pessFechar").addEventListener("click", () => { $("pessInput").value = ""; $("pessBuscaBox").classList.add("hidden"); tela("app"); });
-  $("pessBusca").addEventListener("click", () => {
-    const box = $("pessBuscaBox"), abrir = box.classList.contains("hidden");
-    box.classList.toggle("hidden", !abrir);
-    if (abrir) $("pessInput").focus(); else { $("pessInput").value = ""; renderPessoas(); }
-  });
-  $("pessInput").addEventListener("input", renderPessoas);
+
+  const socialTexto = (texto) => {
+    const p = document.createElement("p");
+    p.className = "social-text";
+    p.textContent = texto;
+    return p;
+  };
+
+  function botaoSocial(titulo, acao) {
+    const botao = document.createElement("button");
+    botao.type = "button";
+    botao.className = "primary";
+    botao.textContent = titulo;
+    botao.onclick = acao;
+    return botao;
+  }
+
+  function formularioSocial(label, acao, max, enviar) {
+    const form = document.createElement("form");
+    form.className = "box";
+    const rotulo = document.createElement("label");
+    const input = document.createElement("input");
+    input.required = true;
+    input.maxLength = max;
+    input.autocomplete = "off";
+    input.autocapitalize = "off";
+    rotulo.append(label, input);
+    const botao = document.createElement("button");
+    botao.className = "primary";
+    botao.textContent = acao;
+    const aviso = socialTexto("");
+    aviso.setAttribute("role", "status");
+    form.append(rotulo, botao, aviso);
+    form.onsubmit = async (event) => {
+      event.preventDefault();
+      if (botao.disabled || !input.value.trim()) return;
+      botao.disabled = true;
+      aviso.textContent = "";
+      try {
+        await enviar(input.value.trim(), form);
+      } catch (error) {
+        aviso.textContent = mensagemSocial(error);
+      } finally {
+        botao.disabled = false;
+      }
+    };
+    return form;
+  }
+
+  function mensagemSocial(error) {
+    if (error.code === "permission-denied") return "Acesso indisponível. Confira se a conta em nuvem e as regras da turma estão ativas.";
+    return error.message || "Não foi possível concluir. Tente novamente.";
+  }
+
+  async function carregarSocial(corpo, tarefa, render, falha) {
+    const aviso = socialTexto("Carregando…");
+    corpo.append(aviso);
+    try {
+      const dados = await tarefa();
+      if (aviso.isConnected) {
+        aviso.remove();
+        render(dados);
+      }
+    } catch (error) {
+      aviso.textContent = mensagemSocial(error);
+      if (aviso.isConnected) falha?.();
+    }
+  }
+
+  function abrirAmigos() {
+    const corpo = painelSocial("Amigos");
+    void carregarSocial(corpo, () => social().listarAmigos(), (amigos) => {
+      if (!amigos.length) corpo.append(socialTexto("Nenhum amigo adicionado."));
+      for (const amigo of amigos) corpo.append(socialTexto("@" + amigo.username));
+    });
+  }
+
+  $("btnPessoas").onclick = abrirAmigos;
+  $("amigos").onclick = abrirAmigos;
+  $("adicionarAmigo").onclick = () => {
+    const corpo = painelSocial("Adicionar amigo", abrirAmigos);
+    corpo.append(formularioSocial("Nome de usuário", "Adicionar amigo", 21, async (valor, form) => {
+      const nome = valor.replace(/^@/, "").toLowerCase();
+      if (!/^[a-z0-9._]{2,20}$/.test(nome)) throw new Error("Digite um nome de usuário válido.");
+      await social().adicionarAmigo(nome);
+      if (form.isConnected) abrirAmigos();
+    }));
+  };
+
+  function atualizarRotuloTurma(turma) {
+    $("rotuloTurma").textContent = turma ? "Turma" : "Entrar em uma turma";
+  }
+
+  function abrirTurma() {
+    const corpo = painelSocial("Turma");
+    const mostrarEntrada = () => {
+      $("painelSocialTitulo").textContent = "Entrar em uma turma";
+      corpo.append(formularioSocial("Código do convite", "Entrar", 32, async (valor, form) => {
+        const code = valor.toLowerCase();
+        if (!/^[a-f0-9]{32}$/.test(code)) throw new Error("Código de convite inválido.");
+        await social().entrarTurma(code);
+        if (form.isConnected) abrirTurma();
+      }));
+    };
+    void carregarSocial(corpo, () => social().obterTurma(), (turma) => {
+      atualizarRotuloTurma(turma);
+      if (!turma) { mostrarEntrada(); return; }
+      corpo.append(socialTexto(turma.name), botaoSocial("Atividades", abrirAtividades),
+        botaoSocial("Bate-papo", abrirChats), botaoSocial("Informações", () => abrirInformacoesTurma(turma)));
+    }, mostrarEntrada);
+  }
+
+  function abrirInformacoesTurma(turma) {
+    const corpo = painelSocial("Informações da turma", abrirTurma);
+    corpo.append(socialTexto(turma.name), socialTexto(turma.description || "Sem descrição."));
+    if (turma.podeConvidar) {
+      const codigo = socialTexto("");
+      codigo.setAttribute("role", "status");
+      const botao = botaoSocial("Gerar convite", async () => {
+        botao.disabled = true;
+        try {
+          codigo.textContent = await social().criarConvite();
+        } catch (error) {
+          codigo.textContent = mensagemSocial(error);
+        } finally {
+          botao.disabled = false;
+        }
+      });
+      corpo.append(botao, codigo);
+    }
+  }
+
+  function abrirAtividades() {
+    const corpo = painelSocial("Atividades", abrirTurma);
+    void carregarSocial(corpo, () => social().listarAtividades(), (atividades) => {
+      if (!atividades.length) corpo.append(socialTexto("Nenhuma atividade publicada."));
+      for (const atividade of atividades) {
+        corpo.append(botaoSocial(atividade.title, () => abrirResolver(atividade, abrirAtividades)));
+      }
+    });
+  }
+
+  function abrirChats() {
+    const corpo = painelSocial("Bate-papo", abrirTurma);
+    corpo.append(botaoSocial("Criar chat", () => {
+      const painel = painelSocial("Criar chat", abrirChats);
+      painel.append(formularioSocial("Nome do chat", "Criar", 60, async (nome, form) => {
+        await social().criarChat(nome);
+        if (form.isConnected) abrirChats();
+      }));
+    }));
+    void carregarSocial(corpo, () => social().listarChats(), (chats) => {
+      if (!chats.length) corpo.append(socialTexto("Nenhum chat criado."));
+      for (const chat of chats) corpo.append(botaoSocial(chat.title, () => abrirChat(chat)));
+    });
+  }
+
+  function abrirChat(chat) {
+    const corpo = painelSocial(chat.title, abrirChats);
+    corpo.append(botaoSocial("Atualizar mensagens", () => abrirChat(chat)));
+    const feed = document.createElement("section");
+    corpo.append(feed);
+    corpo.append(formularioSocial("Mensagem", "Enviar", 1000, async (mensagem, form) => {
+      await social().enviarMensagem(chat.id, mensagem);
+      if (form.isConnected) abrirChat(chat);
+    }));
+    void carregarSocial(feed, () => social().listarMensagens(chat.id), (mensagens) => {
+      if (!mensagens.length) feed.append(socialTexto("Nenhuma mensagem."));
+      for (const mensagem of mensagens) feed.append(socialTexto("@" + mensagem.username + " — " + mensagem.text));
+    });
+  }
+
+  function abrirResolver(atividade, voltar) {
+    const corpo = painelSocial("Resolver", voltar);
+    const chave = "studyrp-rascunho/" + SESSAO + "/" + (atividade?.id || "livre");
+    let salvo = {};
+    try { salvo = JSON.parse(ler(chave)) || {}; } catch {}
+    const form = document.createElement("form");
+    form.className = "box";
+    const label = document.createElement("label");
+    const enunciado = document.createElement("textarea");
+    enunciado.value = atividade?.prompt || salvo.enunciado || "";
+    enunciado.readOnly = Boolean(atividade);
+    enunciado.maxLength = 5000;
+    label.append("Enunciado", enunciado);
+    const respostaLabel = document.createElement("label");
+    const resposta = document.createElement("textarea");
+    resposta.value = salvo.resposta || "";
+    resposta.maxLength = 5000;
+    respostaLabel.append("Sua resolução", resposta);
+    const estado = socialTexto("");
+    estado.setAttribute("role", "status");
+    form.append(label, respostaLabel, botaoSocial("Salvar rascunho", () => {
+      try {
+        localStorage.setItem(chave, JSON.stringify({ enunciado: enunciado.value, resposta: resposta.value }));
+        estado.textContent = "Rascunho salvo neste dispositivo.";
+      } catch {
+        estado.textContent = "Não foi possível salvar o rascunho neste dispositivo.";
+      }
+    }), estado);
+    corpo.append(form);
+  }
+
+  $("btnTurma").onclick = abrirTurma;
+  $("btnResolver").onclick = () => abrirResolver();
+  const atualizarTurmaInicial = () => {
+    if (contas()[SESSAO]?.provider === "google" && window.StudyRPSocial) {
+      void social().obterTurma().then(atualizarRotuloTurma).catch(() => {});
+    }
+  };
+  window.addEventListener("studyrp:google-user", atualizarTurmaInicial);
 
   function copiarAlt(txt) {
     const t = document.createElement("textarea"); t.value = txt; t.style.position = "fixed"; t.style.opacity = "0";
@@ -512,6 +699,10 @@
             const todas = contas();
             delete todas[SESSAO];
             localStorage.removeItem(CHAVE_PERFIL);
+            const rascunho = "studyrp-rascunho/" + SESSAO + "/";
+            for (const chave of Object.keys(localStorage)) {
+              if (chave.startsWith(rascunho)) localStorage.removeItem(chave);
+            }
             const cache = ler("studyrp-cache");
             if (cache) {
               let contaDoCache;
@@ -885,7 +1076,6 @@
   $("sino").addEventListener("click", () => abrirInfo("Notificações", "Nenhuma notificação nova."));
   $("fecharPerfil").addEventListener("click", () => { modoPerfil(false); tela("app"); });
   $("optEstilo").addEventListener("click", () => tela("picker"));
-  $("amigos").addEventListener("click", () => toast("Amigos em breve"));
 
   function atualizarEdicao() {
     $("contBio").textContent = 190 - $("inBio").value.length;

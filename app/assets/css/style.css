@@ -615,3 +615,24 @@ header .top { position: relative; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+
+.c-resolver { --c: #a2ec9a; }
+.app .grid .c-resolver {
+  grid-column: 1 / -1; order: -1; min-height: 104px;
+  background: #a2ec9a; border-color: #c4ffc0; color: #142a1c;
+  font-size: clamp(1.3rem, 2.8vw, 2rem); box-shadow: 0 0 24px #a2ec9a38;
+}
+.c-turma { --c: #2fb86a; }
+.app .grid .c-turma { align-items: center; justify-content: center; text-align: center; }
+#pess:not(.hidden) { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+.social-add {
+  position: fixed; z-index: 8; right: max(20px, calc((100vw - 960px) / 2 + 24px));
+  bottom: calc(20px + env(safe-area-inset-bottom)); width: 56px; height: 56px;
+  border: 0; border-radius: 50%; color: #fff; background: #365fae;
+  font: 2rem/1 system-ui; cursor: pointer; box-shadow: 0 4px 16px #0008;
+}
+#pessCorpo { display: grid; gap: 14px; }
+#pessCorpo form, #pessCorpo label { display: grid; gap: 8px; }
+#pessCorpo textarea { min-height: 100px; resize: vertical; }
+#pessCorpo .social-text { white-space: pre-wrap; overflow-wrap: anywhere; }

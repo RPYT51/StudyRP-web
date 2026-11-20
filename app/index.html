@@ -92,16 +92,16 @@
   </header>
 
   <main class="grid">
-    <button class="btn c-chats">
-      Chats
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L3 20l1-5.2A8 8 0 1 1 21 12z"/></svg>
+    <button class="btn wide c-resolver" id="btnResolver">
+      Resolver
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m4 12 5 5L20 6M4 20h16"/></svg>
     </button>
     <button class="btn c-pessoas" id="btnPessoas">
-      Pessoas
+      Amigos
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.3c2.2.7 3.5 2.6 3.5 5.7"/></svg>
     </button>
-    <button class="btn c-atividades">
-      Atividades
+    <button class="btn c-turma" id="btnTurma">
+      <span id="rotuloTurma">Entrar em uma turma</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 11l1.5 1.5L14 9M9 17h6"/></svg>
     </button>
     <button class="btn c-ajuda">
@@ -262,11 +262,11 @@
 <div class="cfg hidden" id="pess">
   <div class="ptop">
     <button class="iconbtn" id="pessFechar" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-    <h2>Pessoas</h2>
-    <button class="iconbtn" id="pessBusca" aria-label="Pesquisar membro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></button>
+    <h2 id="painelSocialTitulo">Amigos</h2>
+    <span></span>
   </div>
-  <div class="inp cfgbusca hidden" id="pessBuscaBox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="pessInput" placeholder="Buscar membro" autocomplete="off"></div>
   <div id="pessCorpo"></div>
+  <button id="adicionarAmigo" type="button" class="social-add hidden" aria-label="Adicionar amigo">+</button>
 </div>
 
 <div class="cfg hidden" id="crg">
