@@ -3,7 +3,7 @@ import {
   limit, query, runTransaction, serverTimestamp, setDoc, startAfter, where, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
-import { prepararConvite } from "./firebase-social.js?v=22077066629d";
+import { prepararConvite, sessaoPertenceA } from "./firebase-social.js?v=f87589f95b23";
 
 export function iniciarDev(app, auth) {
   const db = getFirestore(app);
@@ -12,8 +12,8 @@ export function iniciarDev(app, auth) {
   async function usuarioDaSessao() {
     await auth.authStateReady();
     const uid = auth.currentUser?.uid;
-    if (!uid || localStorage.getItem("studyrp-sessao") !== "google_" + uid) {
-      throw new Error("Entre novamente com o Google para acessar o painel.");
+    if (!sessaoPertenceA(uid)) {
+      throw new Error("Entre novamente para acessar o painel.");
     }
     return uid;
   }

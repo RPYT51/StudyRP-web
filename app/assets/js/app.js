@@ -15,7 +15,7 @@
   function gravar(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   function contas() { try { return JSON.parse(ler(CHAVE_CONTAS) || "{}"); } catch (e) { return {}; } }
   const SESSAO = (function () { const u = ler(CHAVE_SESSAO); return u && contas()[u] ? u : ""; })();
-  const SESSAO_GOOGLE = Boolean(SESSAO && contas()[SESSAO]?.provider === "google");
+  const SESSAO_NUVEM = ["google", "password"].includes(contas()[SESSAO]?.provider);
   const CHAVE_PERFIL = "studyrp-perfil" + (SESSAO ? "-" + SESSAO : "");
 
   let dados = { nome: "RPYT", status: "", bio: "", desde: "", foto: "", presenca: "online", statusAte: 0, duracao: "24h", cargos: null, usuario: "", zoom: 100, textoMenor: false };
@@ -130,10 +130,11 @@
   function abrirApp(n) {
     app.dataset.estilo = n;
     tela("app");
-    if (!SESSAO_GOOGLE) return;
+    if (!SESSAO_NUVEM) return;
     const retorno = sessionStorage.getItem("studyrp-retorno");
     sessionStorage.removeItem("studyrp-retorno");
-    if (retorno === "amigos") abrirAmigos();
+    if (retorno === "conta") abrirConta();
+    else if (retorno === "amigos") abrirAmigos();
     else if (retorno === "turma") abrirTurma();
     else if (retorno === "dev") { tela("perfil"); void abrirDev(); }
   }
@@ -204,7 +205,7 @@
   });
   $("durOk").addEventListener("click", () => { fecharSheets(); atualizarStatusTela(); });
   // ===== CONFIGURAÇÕES / DEV =====
-  const VERSAO = window.STUDYRP_VERSION || "0.1";
+  const VERSAO = document.querySelector('meta[name="studyrp-version"]').content;
   const logs = [];
   function log(msg) { logs.unshift(hhmm(new Date()) + "  " + msg); if (logs.length > 60) logs.pop(); }
   let ateDev = 0;
@@ -352,11 +353,11 @@
       carregando: "Consultando o acesso desta conta…",
       ativo: "Acesso DEV ativo até " + hhmm(new Date(ateDev)) + ".",
       inativo: "Use a chave emitida para sua conta. O acesso dura seis horas.",
-      local: "Entre com o Google para usar uma chave de desenvolvedor.",
+      local: "Conecte sua conta para usar uma chave de desenvolvedor.",
       perfil: "Complete seu perfil compartilhado para ativar uma chave.",
       erro: "Não foi possível consultar seu acesso."
     };
-    const acoes = { carregando: "Aguarde…", ativo: "Desativar DEV", inativo: "Ativar", local: "Continuar com o Google", perfil: "Completar perfil", erro: "Tentar novamente" };
+    const acoes = { carregando: "Aguarde…", ativo: "Desativar DEV", inativo: "Ativar", local: "Conectar conta", perfil: "Completar perfil", erro: "Tentar novamente" };
     $("devMsg").textContent = mensagens[modo];
     $("devCampo").hidden = modo !== "inativo";
     $("inKey").disabled = modo !== "inativo";
@@ -371,7 +372,7 @@
     $("inKey").value = "";
     abrirSheet("sheetDev");
     const consulta = ++consultaDev;
-    if (!SESSAO_GOOGLE) { renderDev("local"); return; }
+    if (!SESSAO_NUVEM) { renderDev("local"); return; }
     if (!dados.uidCloud) { renderDev("perfil"); return; }
     renderDev("carregando");
     try {
@@ -495,8 +496,8 @@
     finally { botao.disabled = false; }
   };
 
-  window.addEventListener("studyrp:google-user", async event => {
-    if ("google_" + event.detail.uid !== SESSAO || !window.StudyRPDev) return;
+  window.addEventListener("studyrp:usuario", async event => {
+    if (!SESSAO_NUVEM || !dados.uidCloud || event.detail.uid !== contas()[SESSAO]?.uid || !window.StudyRPDev) return;
     const consulta = ++consultaDev;
     try {
       const estado = await window.StudyRPDev.obterEstado();
@@ -507,7 +508,8 @@
   const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   function social() {
-    if (!SESSAO_GOOGLE) throw Object.assign(new Error("Conecte sua conta Google para encontrar amigos e participar de turmas."), { code: "conta/sessao" });
+    if (!SESSAO_NUVEM) throw Object.assign(new Error("Conecte sua conta para encontrar amigos e participar de turmas."), { code: "conta/sessao" });
+    if (!dados.uidCloud) throw Object.assign(new Error("Complete o perfil para usar amigos e turmas."), { code: "conta/perfil" });
     if (!window.StudyRPSocial) throw new Error("O serviço ainda não carregou. Verifique sua conexão.");
     return window.StudyRPSocial;
   }
@@ -574,7 +576,7 @@
   function mensagemSocial(error, recusa = "O servidor não autorizou esta ação para sua conta.") {
     if (!navigator.onLine || error.code === "unavailable" || error.code === "deadline-exceeded") return "Sem conexão com o servidor. Tente novamente quando estiver online.";
     if (error.code === "permission-denied") return recusa;
-    if (error.code === "unauthenticated") return "Entre novamente com o Google para continuar.";
+    if (error.code === "unauthenticated") return "Entre novamente para continuar.";
     return error.code && !error.code.startsWith("conta/") ? "Não foi possível concluir. Tente novamente." : error.message || "Tente novamente.";
   }
 
@@ -591,7 +593,7 @@
       if (!aviso.isConnected) return;
       aviso.textContent = mensagemSocial(erro, recusa);
       if (["conta/sessao", "conta/perfil", "unauthenticated"].includes(erro.code)) {
-        corpo.append(botaoSocial(erro.code === "conta/perfil" ? "Completar perfil" : "Continuar com o Google", () => conectarContaSocial(destino)));
+        corpo.append(botaoSocial(erro.code === "conta/perfil" ? "Completar perfil" : "Conectar conta", () => conectarContaSocial(destino)));
       } else {
         const repetir = botaoSocial("Tentar novamente", () => {
           repetir.remove();
@@ -757,11 +759,11 @@
     if (event.clientX < area.left || event.clientX > area.right || event.clientY < area.top || event.clientY > area.bottom) avisoResolver.close();
   });
   const atualizarTurmaInicial = () => {
-    if (contas()[SESSAO]?.provider === "google" && window.StudyRPSocial) {
+    if (SESSAO_NUVEM && dados.uidCloud && window.StudyRPSocial) {
       void social().obterTurma().then(atualizarRotuloTurma).catch(() => {});
     }
   };
-  window.addEventListener("studyrp:google-user", atualizarTurmaInicial);
+  window.addEventListener("studyrp:usuario", atualizarTurmaInicial);
 
   function copiarAlt(txt) {
     const t = document.createElement("textarea"); t.value = txt; t.style.position = "fixed"; t.style.opacity = "0";
@@ -886,25 +888,23 @@
     const conta = contas()[SESSAO];
     if (!SESSAO || !conta || excluindoConta) return;
     const google = conta.provider === "google";
-    const mensagem = google
-      ? "Seu perfil, nome de usuário e lista de amigos serão apagados. Mensagens enviadas continuam na turma. Confirme sua identidade pelo Google para excluir a conta."
+    const senhaNecessaria = conta.provider === "password";
+    const mensagem = SESSAO_NUVEM
+      ? "Seu perfil, nome de usuário e lista de amigos serão apagados. Mensagens enviadas continuam na turma. " + (google ? "Confirme sua identidade pelo Google." : "Confirme sua senha para continuar.")
       : "Sua conta StudyRP e os dados deste perfil serão apagados deste aparelho.";
     abrirInfo("Excluir conta?", mensagem + " Essa ação não pode ser desfeita.", [
       { txt: "Cancelar" },
       { txt: "Excluir minha conta", cls: "danger", fn() {
         if (excluindoConta) return false;
+        const senha = senhaNecessaria ? $("excluirSenha").value : undefined;
+        if (senhaNecessaria && !senha) { $("excluirSenha").focus(); return false; }
         const botao = this;
         excluindoConta = true;
         botao.disabled = true;
         void (async () => {
           try {
             if (ler(CHAVE_SESSAO) !== SESSAO) throw new Error("Entre novamente para excluir a sua conta.");
-            if (google) {
-              if (!window.StudyRPGoogle) {
-                throw new Error("A exclusão desta conta Google está indisponível nesta versão.");
-              }
-              await window.StudyRPGoogle.excluirConta(conta.uid);
-            }
+            if (SESSAO_NUVEM) await servicoConta().excluirConta(conta.uid, senha);
             const todas = contas();
             delete todas[SESSAO];
             localStorage.removeItem(CHAVE_PERFIL);
@@ -929,15 +929,33 @@
         return false;
       } }
     ]);
+    if (senhaNecessaria) {
+      const label = document.createElement("label");
+      label.className = "field";
+      label.textContent = "Senha atual";
+      const campo = document.createElement("input");
+      campo.id = "excluirSenha";
+      campo.type = "password";
+      campo.autocomplete = "current-password";
+      label.append(campo);
+      $("infoBtns").prepend(label);
+      campo.focus();
+    }
   }
 
   async function alterarPerfilConta(campos) {
-    if (SESSAO_GOOGLE) {
-      if (!window.StudyRPCloud || !usuarioGoogle || usuarioGoogle.uid !== contas()[SESSAO]?.uid) throw new Error("Entre novamente com o Google para alterar seu perfil.");
+    if (SESSAO_NUVEM) {
+      if (!dados.uidCloud) throw new Error("Complete seu perfil online antes de editá-lo.");
+      if (!window.StudyRPCloud || !identidadeAtual || identidadeAtual.uid !== contas()[SESSAO]?.uid) throw new Error("Entre novamente para alterar seu perfil.");
       const novo = { ...dados, ...campos };
-      await window.StudyRPCloud.saveProfile(usuarioGoogle.uid, {
-        usuario: novo.usuario, nomeExibido: novo.nome, telefone: novo.telefone || "", foto: dados.fotoCloud || usuarioGoogle.photoURL || ""
+      await window.StudyRPCloud.saveProfile(identidadeAtual.uid, {
+        usuario: novo.usuario, nomeExibido: novo.nome, telefone: novo.telefone || "", foto: dados.fotoCloud || identidadeAtual.photoURL || ""
       });
+      if (campos.usuario) {
+        const todas = contas();
+        todas[SESSAO].usuario = novo.usuario;
+        gravar(CHAVE_CONTAS, JSON.stringify(todas));
+      }
     }
     Object.assign(dados, campos);
   }
@@ -946,7 +964,8 @@
     $("subCorpo").innerHTML =
       '<div class="glabel">Informações de conta</div><div class="grp plain">' +
         linhaSimples("user", "Nome de usuário", usuarioAtual()) + linhaSimples("nome", "Nome exibido", dados.nome) +
-        linhaSimples("telefone", "Telefone", dados.telefone || "Não informado") + '</div>' +
+        linhaSimples("telefone", "Telefone", dados.telefone || "Não informado") +
+        (SESSAO_NUVEM && !dados.uidCloud ? linhaSimples("completar", "Completar perfil online") : "") + '</div>' +
       '<div class="glabel">Segurança</div><div class="grp plain">' + linhaSimples("senha", "Senha") + '</div>' +
       '<div class="glabel">Gerenciamento da conta</div><div class="grp plain">' +
         linhaSimples("excluir", "Excluir conta", "", true) + '</div>';
@@ -957,7 +976,7 @@
       }),
       nome: () => editarCampo("Nome exibido", dados.nome, 24, (v) => { if (!v) return "O nome não pode ficar vazio."; return alterarPerfilConta({ nome: v }); }),
       telefone: () => editarCampo("Telefone (opcional)", dados.telefone || "", 20, v => alterarPerfilConta({ telefone: v }), "tel"),
-      senha: abrirAlteracaoSenha, excluir: confirmarExclusaoConta
+      completar: () => conectarContaSocial("conta"), senha: abrirAlteracaoSenha, excluir: confirmarExclusaoConta
     });
     if (!semTrocarTela) abrirSub("Conta"); else $("subT").textContent = "Conta";
   }
@@ -977,7 +996,7 @@
     $("subCorpo").innerHTML = '<div class="glabel">Provedor de login</div><p class="subdesc"></p>';
     $("subCorpo").lastElementChild.textContent = google
       ? "Google está vinculado ao login desta conta."
-      : "Você entra com usuário e senha. Nenhum provedor externo está vinculado.";
+      : (SESSAO_NUVEM ? "Você entra com seu e-mail e senha." : "Conta local deste aparelho.");
     abrirSub("Apps conectados");
   }
 
@@ -1036,6 +1055,11 @@
       }
       botao.disabled = true;
       try {
+        if (conta?.provider === "password") {
+          await servicoConta().alterarSenha(conta.uid, atual, nova);
+          if (form.isConnected) { abrirConta(); toast("Senha alterada."); }
+          return;
+        }
         if (!conta || await hashSenha(conta.sal, atual) !== conta.hash) throw new Error("Senha atual incorreta.");
         const sal = Array.from(crypto.getRandomValues(new Uint8Array(16)), v => v.toString(16).padStart(2, "0")).join("");
         const hash = await hashSenha(sal, nova);
@@ -1047,7 +1071,7 @@
         localStorage.setItem(CHAVE_CONTAS, JSON.stringify(todas));
         if (form.isConnected) { abrirConta(); toast("Senha alterada neste dispositivo."); }
       } catch (error) {
-        erro.textContent = error.message || "Não foi possível alterar a senha.";
+        erro.textContent = window.StudyRPCloud?.mensagemAuth(error) || error.message;
       } finally {
         botao.disabled = false;
       }
@@ -1062,7 +1086,9 @@
   function abrirAparencia(apenasAcessibilidade = false) {
     apenasAcessibilidade = apenasAcessibilidade === true;
     $("subCorpo").innerHTML =
-      (apenasAcessibilidade ? "" : '<div class="glabel">Tema</div><div class="grp plain">' + linhaSimples("estilo", "Estilo da tela inicial", nomeEstilo()) + '</div>') +
+      (apenasAcessibilidade ? "" : '<div class="glabel">Aparência</div><div class="grp plain">' +
+        '<label class="row tema-controle" for="temaConfig"><span>Tema</span><select id="temaConfig" data-seletor-tema><option value="sistema">Do aparelho</option><option value="claro">Claro</option><option value="escuro">Escuro</option></select></label>' +
+        linhaSimples("estilo", "Estilo da tela inicial", nomeEstilo()) + '</div>') +
       '<div class="glabel">Nível de zoom</div><div class="zoomcard">' +
         '<div class="zrow"><b>Nível de zoom</b><span id="zVal"></span></div>' +
         '<div class="zctl"><button class="zbtn" id="zMenos" aria-label="Diminuir">' + svg("minus") + '</button>' +
@@ -1078,6 +1104,7 @@
     $("zReset").addEventListener("click", () => { dados.textoMenor = false; mudar(100); });
     $("swTexto").addEventListener("click", () => { dados.textoMenor = !dados.textoMenor; gravar(CHAVE_PERFIL, JSON.stringify(dados)); aplicarZoom(); mostrar(); });
     ligarLinhas({ estilo: () => tela("picker") });
+    window.StudyRPTema.sincronizar();
     mostrar(); abrirSub(apenasAcessibilidade ? "Acessibilidade" : "Aparência");
   }
 
@@ -1117,13 +1144,15 @@
   $("crgFechar").addEventListener("click", () => tela(origemCargos || "config"));
   $("devCargos").addEventListener("click", () => { fecharSheets(); abrirCargos(); });
 
-  // ===== LOGIN / REGISTRO (contas salvas só neste aparelho) =====
+  // ===== Conta e cadastro =====
   let modoAuth = "entrar";
   function setModoAuth(m) {
     modoAuth = m;
     $("tabEntrar").classList.toggle("on", m === "entrar");
     $("tabCriar").classList.toggle("on", m === "criar");
     document.querySelectorAll(".so-reg").forEach(e => e.classList.toggle("hidden", m !== "criar"));
+    $("auUserLabel").textContent = m === "criar" ? "Nome de usuário" : "E-mail ou usuário deste aparelho";
+    $("auUser").maxLength = m === "criar" ? 20 : 254;
     $("auOk").textContent = m === "criar" ? "Criar conta" : "Entrar";
     $("auSenha").autocomplete = m === "criar" ? "new-password" : "current-password";
     $("auErro").textContent = "";
@@ -1142,36 +1171,55 @@
     h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
     return "f" + (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
   }
+  function servicoConta() {
+    if (!window.StudyRPCloud) throw new Error("O serviço de login ainda não carregou. Confira sua conexão e tente novamente.");
+    return window.StudyRPCloud;
+  }
+  function lerCadastro(uid) {
+    try { return JSON.parse(ler("studyrp-cadastro-" + uid)); } catch { return null; }
+  }
   async function enviarAuth() {
-    const erro = (t) => { $("auErro").textContent = t; };
-    const user = $("auUser").value.trim().toLowerCase(), senha = $("auSenha").value;
+    const botao = $("auOk");
+    if (botao.disabled) return;
+    const usuario = $("auUser").value.trim().toLowerCase();
+    const senha = $("auSenha").value;
+    const erro = texto => { $("auErro").textContent = texto; };
     erro("");
-    if (!user || !senha) return erro("Preencha usuário e senha.");
-    const todas = contas();
-    if (modoAuth === "entrar") {
-      const c = todas[user];
-      if (!c || (await hashSenha(c.sal, senha)) !== c.hash) return erro("Usuário ou senha incorretos.");
-    } else {
-      const nome = $("auNome").value.trim() || user;
-      const telefone = $("auTelefone").value.trim();
-      if (!/^[a-z0-9._]{2,20}$/.test(user)) return erro("Usuário: 2 a 20 letras minúsculas, números, ponto ou _.");
-      if (senha.length < 6) return erro("A senha precisa ter pelo menos 6 caracteres.");
-      if (senha !== $("auSenha2").value) return erro("As senhas não são iguais.");
-      if (todas[user]) return erro("Esse usuário já existe.");
-      const sal = Math.random().toString(36).slice(2) + Date.now().toString(36);
-      todas[user] = { sal: sal, hash: await hashSenha(sal, senha) };
-      gravar(CHAVE_CONTAS, JSON.stringify(todas));
-      gravar("studyrp-perfil-" + user, JSON.stringify({ nome, usuario: user, telefone, desde: new Date().toISOString() }));
-    }
-    sessionStorage.removeItem("studyrp-conectando");
-    sessionStorage.removeItem("studyrp-retorno");
-    gravar(CHAVE_SESSAO, user);
-    location.reload();
+    if (!usuario || !senha) return erro("Preencha os campos de login.");
+    botao.disabled = true;
+    try {
+      if (modoAuth === "criar") {
+        const email = $("auEmail").value.trim();
+        if (!/^[a-z0-9._]{2,20}$/.test(usuario)) return erro("Use de 2 a 20 letras minúsculas, números, pontos ou sublinhados no nome de usuário.");
+        if (!email || !$("auEmail").validity.valid) return erro("Informe um endereço de e-mail válido.");
+        if (senha.length < 6) return erro("Use uma senha de pelo menos 6 caracteres.");
+        if (senha !== $("auSenha2").value) return erro("As senhas não são iguais.");
+        const perfil = { usuario, nomeExibido: $("auNome").value.trim(), telefone: $("auTelefone").value.trim() };
+        const { aviso } = await servicoConta().criarConta(email, senha, uid => gravar("studyrp-cadastro-" + uid, JSON.stringify(perfil)));
+        if (aviso) $("resultadoEmail").textContent = "Não foi possível enviar o primeiro e-mail. " + aviso;
+      } else {
+        const todas = contas();
+        const local = Object.hasOwn(todas, usuario) && todas[usuario];
+        if (local?.hash && await hashSenha(local.sal, senha) === local.hash) {
+          sessionStorage.removeItem("studyrp-conectando");
+          sessionStorage.removeItem("studyrp-retorno");
+          gravar(CHAVE_SESSAO, usuario);
+          location.reload();
+          return;
+        }
+        const conhecida = Object.entries(todas).find(([key, c]) => c.provider === "password" && (c.usuario === usuario || key === usuario));
+        const email = usuario.includes("@") ? usuario : conhecida?.[1].email;
+        if (!email) return erro("Confira o usuário e a senha. Para entrar em outro aparelho, use seu e-mail.");
+        await servicoConta().entrarComSenha(email, senha);
+      }
+      $("auSenha").value = $("auSenha2").value = "";
+    } catch (e) { erro(window.StudyRPCloud?.mensagemAuth(e) || e.message); }
+    finally { botao.disabled = false; }
   }
   function sair() {
     abrirInfo("Sair da conta", "Você vai voltar para a tela de login.", [
       { txt: "Sair", cls: "danger", fn: () => {
-        if (contas()[SESSAO]?.provider !== "google") {
+        if (!SESSAO_NUVEM) {
           localStorage.removeItem(CHAVE_SESSAO);
           location.reload();
         } else {
@@ -1184,38 +1232,44 @@
   $("tabEntrar").addEventListener("click", () => setModoAuth("entrar"));
   $("tabCriar").addEventListener("click", () => setModoAuth("criar"));
   $("auOk").addEventListener("click", enviarAuth);
-  ["auUser", "auNome", "auTelefone", "auSenha", "auSenha2"].forEach(id => $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") enviarAuth(); }));
-  let usuarioGoogle = null;
-  let consultaGoogle = 0;
+  $("auGoogle")?.addEventListener("click", () => {
+    if (!window.StudyRPCloud) $("auErro").textContent = "O serviço do Google ainda não carregou. Confira sua conexão e tente novamente.";
+  });
+  ["auUser", "auEmail", "auNome", "auTelefone", "auSenha", "auSenha2"].forEach(id => $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") enviarAuth(); }));
+  let identidadeAtual = null;
+  let consultaPerfil = 0;
   let carregandoPerfil = false;
 
   function voltarDaConexao() {
-    consultaGoogle++;
+    consultaPerfil++;
     carregandoPerfil = false;
     sessionStorage.removeItem("studyrp-conectando");
     sessionStorage.removeItem("studyrp-retorno");
     $("credenciais").hidden = false;
     $("painelGoogle").hidden = true;
     $("cancelarConexao").hidden = true;
-    if (SESSAO && (!SESSAO_GOOGLE || usuarioGoogle?.uid === contas()[SESSAO]?.uid)) { abrirSessao(); return; }
-    if (SESSAO_GOOGLE) {
+    if (SESSAO && !SESSAO_NUVEM) {
+      if (identidadeAtual) window.StudyRPCloud?.sair().catch(() => toast("Não foi possível sair da conta online."));
+      abrirSessao();
+      return;
+    }
+    if (SESSAO_NUVEM && identidadeAtual?.uid === contas()[SESSAO]?.uid) { abrirSessao(); return; }
+    if (SESSAO_NUVEM) {
       window.StudyRPCloud?.sair();
       localStorage.removeItem(CHAVE_SESSAO);
       location.reload();
       return;
     }
-    if (usuarioGoogle) window.StudyRPCloud?.sair().catch(() => { $("auErro").textContent = "Não foi possível sair do Google."; });
+    if (identidadeAtual) window.StudyRPCloud?.sair().catch(() => { $("auErro").textContent = "Não foi possível sair da conta."; });
     tela("auth");
   }
 
   function conectarContaSocial(destino = "dev") {
-    if (SESSAO_GOOGLE && usuarioGoogle) {
+    if (SESSAO_NUVEM && identidadeAtual && identidadeAtual.uid === contas()[SESSAO]?.uid) {
       sessionStorage.setItem("studyrp-retorno", destino);
-      void consultarPerfilGoogle(usuarioGoogle, true);
+      void consultarPerfilCloud(identidadeAtual, true);
       return;
     }
-    const linkWeb = $("auth").querySelector("a.gbtn");
-    if (linkWeb) { linkWeb.click(); return; }
     sessionStorage.setItem("studyrp-conectando", SESSAO || "login");
     sessionStorage.setItem("studyrp-retorno", destino);
     tela("auth");
@@ -1223,17 +1277,23 @@
     $("painelGoogle").hidden = true;
     $("cancelarConexao").hidden = !SESSAO;
     $("conexaoLocalMsg").textContent = "";
-    if (window.StudyRPCloud) void window.StudyRPCloud.entrarComGoogle();
-    else $("conexaoLocalMsg").textContent = "O login Google ainda não carregou. Confira a conexão e toque em Continuar com o Google.";
+    setModoAuth("criar");
+    $("auUser").value = dados.usuario || SESSAO;
+    $("auNome").value = dados.nome || "";
+    $("auTelefone").value = dados.telefone || "";
+    $("conexaoLocalMsg").textContent = "Use um e-mail para levar este perfil para outro aparelho. Se já tiver conta online, escolha Entrar.";
   }
 
-  function painelPerfilGoogle(modo, texto = "") {
+  function painelDePerfil(modo, texto = "") {
     tela("auth");
     $("credenciais").hidden = true;
     $("painelGoogle").hidden = false;
     $("estadoPerfilGoogle").textContent = texto;
     $("googleProfileForm").hidden = modo !== "cadastro";
     $("repetirPerfilGoogle").hidden = modo !== "erro";
+    $("verificarEmail").hidden = modo !== "verificar";
+    $("perfilDepois").hidden = !(modo === "erro" && identidadeAtual?.emailVerified);
+    $("resultadoEmail").textContent = "";
     $("voltarPerfilGoogle").textContent = SESSAO ? "Voltar para minha conta" : "Usar outra conta";
   }
 
@@ -1241,35 +1301,52 @@
     if (!navigator.onLine || erro.code === "unavailable" || erro.code === "auth/network-request-failed") {
       return "Sem conexão para sincronizar o perfil. Tente novamente quando estiver online.";
     }
-    if (erro.code === "permission-denied") return "O servidor não autorizou a sincronização do perfil desta conta.";
+    if (erro.code === "permission-denied") return "Sua conta entrou. O Firestore ainda não liberou a sincronização deste perfil.";
     return erro.code ? "Não foi possível sincronizar seu perfil. Tente novamente." : (erro.message || "Não foi possível carregar seu perfil.");
   }
 
-  function atualizarPreviaGoogle() {
+  function atualizarPreviaPerfil() {
     const usuario = $("gpUser").value.trim().toLowerCase() || "nome_de_usuario";
     $("gpPreviewName").textContent = $("gpName").value.trim() || usuario;
     $("gpPreviewUser").textContent = "@" + usuario;
   }
 
-  function prepararCadastroGoogle(user) {
+  function prepararCadastroCloud(user) {
     const sugestao = (user.email || "").split("@")[0].toLowerCase().replace(/[^a-z0-9._]/g, "").slice(0, 20);
-    const usuarioLocal = SESSAO && /^[a-z0-9._]{2,20}$/.test(dados.usuario) ? dados.usuario : "";
-    $("gpUser").value = usuarioLocal || sugestao;
-    $("gpName").value = (SESSAO ? dados.nome : user.displayName || "").slice(0, 24);
-    $("gpPhone").value = SESSAO ? dados.telefone || "" : "";
+    const usuarioLocal = SESSAO && !SESSAO_NUVEM && /^[a-z0-9._]{2,20}$/.test(dados.usuario) ? dados.usuario : "";
+    const rascunho = lerCadastro(user.uid);
+    $("gpUser").value = rascunho?.usuario || usuarioLocal || sugestao;
+    $("gpName").value = (rascunho?.nomeExibido ?? (usuarioLocal ? dados.nome : user.displayName || "")).slice(0, 24);
+    $("gpPhone").value = rascunho?.telefone ?? (usuarioLocal ? dados.telefone || "" : "");
     $("gpError").textContent = "";
     $("gpSave").disabled = false;
-    atualizarPreviaGoogle();
-    painelPerfilGoogle("cadastro", user.email || "");
+    atualizarPreviaPerfil();
+    painelDePerfil("cadastro", user.email || "");
     $("gpUser").focus();
   }
 
-  function usarPerfilGoogle(user, perfilCloud) {
-    const chave = "google_" + user.uid;
+  function chaveDaConta(user) {
+    const conhecida = Object.entries(contas()).find(([, c]) => c.uid === user.uid && ["google", "password"].includes(c.provider));
+    return conhecida?.[0] || (user.provider === "password" ? "firebase_" : "google_") + user.uid;
+  }
+
+  function usarPerfilCloud(user, perfilCloud, novoPerfil = false) {
+    const chave = chaveDaConta(user);
     const todas = contas();
-    todas[chave] = { provider: "google", uid: user.uid, email: user.email || "" };
+    const legado = (SESSAO && !SESSAO_NUVEM && sessionStorage.getItem("studyrp-conectando") === SESSAO) ? SESSAO : todas[chave]?.origemLocal;
+    todas[chave] = { provider: user.provider, uid: user.uid, email: user.email || "", usuario: perfilCloud.usuario };
     let anterior = {};
     try { anterior = JSON.parse(ler("studyrp-perfil-" + chave)) || {}; } catch {}
+    if (novoPerfil && legado && todas[legado]?.hash) {
+      let perfilLegado = {};
+      try { perfilLegado = JSON.parse(ler("studyrp-perfil-" + legado)) || {}; } catch {}
+      anterior = { ...anterior, ...perfilLegado };
+      const prefixo = "studyrp-rascunho/" + legado + "/";
+      for (const item of Object.keys(localStorage).filter(k => k.startsWith(prefixo))) {
+        gravar("studyrp-rascunho/" + chave + "/" + item.slice(prefixo.length), ler(item));
+      }
+    }
+    localStorage.removeItem("studyrp-cadastro-" + user.uid);
     const perfil = { ...anterior, uidCloud: user.uid, usuario: perfilCloud.usuario, nome: perfilCloud.nome || perfilCloud.usuario,
       telefone: perfilCloud.telefone || "", fotoCloud: perfilCloud.foto || "", foto: anterior.foto || perfilCloud.foto || "",
       desde: anterior.desde || new Date().toISOString() };
@@ -1283,37 +1360,64 @@
     abrirSessao();
   }
 
-  async function consultarPerfilGoogle(user, forcar = false) {
+  async function consultarPerfilCloud(user, forcar = false) {
     if (!user?.uid || !window.StudyRPCloud) return;
-    const mesmoUsuario = usuarioGoogle?.uid === user.uid;
-    usuarioGoogle = user;
-    if (SESSAO && !SESSAO_GOOGLE && sessionStorage.getItem("studyrp-conectando") !== SESSAO) return;
+    const mesmoUsuario = identidadeAtual?.uid === user.uid;
+    identidadeAtual = user;
+    if (SESSAO && !SESSAO_NUVEM && sessionStorage.getItem("studyrp-conectando") !== SESSAO) return;
+    if (user.emailVerified === false) {
+      ++consultaPerfil;
+      carregandoPerfil = false;
+      painelDePerfil("verificar", "Confirme seu e-mail pelo link enviado para " + user.email + ".");
+      return;
+    }
     if (mesmoUsuario && !forcar && (carregandoPerfil || !$("googleProfileForm").hidden)) return;
     // Restaurar uma sessão local só depois que o SDK confirmar o mesmo UID.
-    if (!forcar && SESSAO === "google_" + user.uid && dados.uidCloud === user.uid) {
+    if (!forcar && SESSAO === chaveDaConta(user) && (dados.uidCloud === user.uid || contas()[SESSAO]?.perfilPendente)) {
+      const todas = contas();
+      if (todas[SESSAO].provider !== user.provider) {
+        todas[SESSAO].provider = user.provider;
+        gravar(CHAVE_CONTAS, JSON.stringify(todas));
+      }
       if (telaAtual === "auth") abrirSessao();
       return;
     }
-    const consulta = ++consultaGoogle;
+    const consulta = ++consultaPerfil;
     carregandoPerfil = true;
-    painelPerfilGoogle("aguarde", "Buscando seu perfil…");
+    painelDePerfil("aguarde", "Buscando seu perfil…");
     try {
       const perfil = await window.StudyRPCloud.getProfile(user.uid);
-      if (consulta !== consultaGoogle) return;
-      if (perfil?.usuario) usarPerfilGoogle(user, perfil);
-      else prepararCadastroGoogle(user);
+      if (consulta !== consultaPerfil) return;
+      if (perfil?.usuario) usarPerfilCloud(user, perfil);
+      else {
+        prepararCadastroCloud(user);
+        if (lerCadastro(user.uid)) $("googleProfileForm").requestSubmit();
+      }
     } catch (erro) {
-      if (consulta === consultaGoogle) painelPerfilGoogle("erro", mensagemPerfil(erro));
+      if (consulta === consultaPerfil) painelDePerfil("erro", mensagemPerfil(erro));
     } finally {
-      if (consulta === consultaGoogle) carregandoPerfil = false;
+      if (consulta === consultaPerfil) carregandoPerfil = false;
     }
   }
 
-  $("gpUser").oninput = $("gpName").oninput = atualizarPreviaGoogle;
+  for (const [id, acao] of [["emailConfirmado", "confirmarEmail"], ["reenviarEmail", "reenviarEmail"]]) {
+    $(id).onclick = async () => {
+      if (!identidadeAtual) return;
+      $("emailConfirmado").disabled = $("reenviarEmail").disabled = true;
+      $("resultadoEmail").textContent = "";
+      try {
+        await servicoConta()[acao](identidadeAtual.uid);
+        if (acao === "reenviarEmail") $("resultadoEmail").textContent = "Enviamos outro link. Confira também a pasta de spam.";
+      } catch (e) { $("resultadoEmail").textContent = window.StudyRPCloud?.mensagemAuth(e) || e.message; }
+      finally { $("emailConfirmado").disabled = $("reenviarEmail").disabled = false; }
+    };
+  }
+
+  $("gpUser").oninput = $("gpName").oninput = atualizarPreviaPerfil;
   $("googleProfileForm").onsubmit = async event => {
     event.preventDefault();
-    const user = usuarioGoogle;
-    const consulta = consultaGoogle;
+    const user = identidadeAtual;
+    const consulta = consultaPerfil;
     if (!user || $("gpSave").disabled) return;
     const usuario = $("gpUser").value.trim().toLowerCase();
     if (!/^[a-z0-9._]{2,20}$/.test(usuario)) {
@@ -1325,23 +1429,43 @@
       const perfil = await window.StudyRPCloud.saveProfile(user.uid, {
         usuario, nomeExibido: $("gpName").value.trim(), telefone: $("gpPhone").value.trim(), foto: user.photoURL || ""
       });
-      if (consulta === consultaGoogle) usarPerfilGoogle(user, perfil);
+      if (consulta === consultaPerfil) usarPerfilCloud(user, perfil, true);
     } catch (erro) {
-      if (consulta === consultaGoogle) $("gpError").textContent = mensagemPerfil(erro);
+      if (consulta === consultaPerfil) {
+        $("gpError").textContent = mensagemPerfil(erro);
+        if (erro.code === "permission-denied" || erro.code === "unavailable") $("perfilDepois").hidden = !user.emailVerified;
+      }
     } finally { $("gpSave").disabled = false; }
+  };
+  $("perfilDepois").onclick = () => {
+    const user = identidadeAtual;
+    if (!user?.emailVerified) return;
+    const chave = chaveDaConta(user);
+    const todas = contas();
+    const origemLocal = SESSAO && !SESSAO_NUVEM && sessionStorage.getItem("studyrp-conectando") === SESSAO ? SESSAO : todas[chave]?.origemLocal;
+    todas[chave] = { provider: user.provider, uid: user.uid, email: user.email, perfilPendente: true, origemLocal };
+    gravar(CHAVE_CONTAS, JSON.stringify(todas));
+    if (!ler("studyrp-perfil-" + chave)) {
+      const nome = lerCadastro(user.uid)?.nomeExibido || user.displayName || user.email.split("@")[0];
+      gravar("studyrp-perfil-" + chave, JSON.stringify({ nome }));
+    }
+    gravar(CHAVE_SESSAO, chave);
+    sessionStorage.removeItem("studyrp-conectando");
+    sessionStorage.removeItem("studyrp-retorno");
+    if (SESSAO === chave) abrirSessao(); else location.reload();
   };
   $("cancelarConexao").onclick = $("voltarPerfilGoogle").onclick = voltarDaConexao;
   $("repetirPerfilGoogle").onclick = () => {
-    if (usuarioGoogle) void consultarPerfilGoogle(usuarioGoogle, true);
+    if (identidadeAtual) void consultarPerfilCloud(identidadeAtual, true);
     else location.reload();
   };
-  window.addEventListener("studyrp:google-user", event => { void consultarPerfilGoogle(event.detail); });
-  window.addEventListener("studyrp:google-signed-out", () => {
-    usuarioGoogle = null;
-    ++consultaGoogle;
+  window.addEventListener("studyrp:usuario", event => { void consultarPerfilCloud(event.detail); });
+  window.addEventListener("studyrp:sem-usuario", () => {
+    identidadeAtual = null;
+    ++consultaPerfil;
     carregandoPerfil = false;
     if (excluindoConta) return;
-    if (SESSAO_GOOGLE && ler(CHAVE_SESSAO) === SESSAO) {
+    if (SESSAO_NUVEM && ler(CHAVE_SESSAO) === SESSAO) {
       localStorage.removeItem(CHAVE_SESSAO);
       location.reload();
     } else if (!SESSAO) { $("painelGoogle").hidden = true; $("credenciais").hidden = false; }
@@ -1373,18 +1497,20 @@
   // Verifica se existe uma versão mais recente publicada no repositório público.
   const botaoAtualizar = $("updateApp");
   const BUILD_ATUAL = Number(window.STUDYRP_BUILD || 0);
-  const URL_APK_ATUAL = "https://github.com/RPYT51/StudyRP-web/releases/latest/download/StudyRP.apk";
+
   async function verificarAtualizacao() {
     if (!botaoAtualizar || !BUILD_ATUAL) return;
     try {
       const resposta = await fetch("https://api.github.com/repos/RPYT51/StudyRP-web/releases/latest", { cache: "no-store" });
       if (!resposta.ok) return;
       const release = await resposta.json();
-      const match = String(release.tag_name || "").match(/^apk-(\d+)$/i);
-      const temApk = (release.assets || []).some(a => a.name === "StudyRP.apk");
-      if (match && temApk && Number(match[1]) > BUILD_ATUAL) {
+      const numero = String(release.tag_name || "");
+      const comparar = new Intl.Collator("en", { numeric: true });
+      const apk = (release.assets || []).find(a => a.name === "StudyRP.apk") ||
+        (release.assets || []).find(a => a.name === "StudyRP-debug.apk");
+      if (/^\d+\.\d+$/.test(numero) && apk && comparar.compare(numero, VERSAO) > 0) {
         botaoAtualizar.classList.remove("hidden");
-        botaoAtualizar.onclick = () => { window.location.href = URL_APK_ATUAL; };
+        botaoAtualizar.onclick = () => { window.location.href = "https://github.com/RPYT51/StudyRP-web/releases/download/" + numero + "/" + apk.name; };
       } else {
         botaoAtualizar.classList.add("hidden");
       }
@@ -1458,9 +1584,9 @@
     abrirApp(salvo);
   }
   if (!SESSAO) tela("auth");
-  else if (SESSAO_GOOGLE) {
-    painelPerfilGoogle("aguarde", "Verificando sua conta…");
+  else if (SESSAO_NUVEM) {
+    painelDePerfil("aguarde", "Verificando sua conta…");
     setTimeout(() => {
-      if (!window.StudyRPCloud && telaAtual === "auth") painelPerfilGoogle("erro", "O login Google não carregou. Verifique sua conexão.");
+      if (!window.StudyRPCloud && telaAtual === "auth") painelDePerfil("erro", "O serviço de login não carregou. Verifique sua conexão.");
     }, 8000);
   } else abrirSessao();

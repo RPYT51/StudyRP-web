@@ -1,13 +1,14 @@
-import { iniciarDev } from "./firebase-dev.js?v=22077066629d";
-import { iniciarSocial } from "./firebase-social.js?v=22077066629d";
+import { iniciarDev } from "./firebase-dev.js?v=f87589f95b23";
+import { iniciarSocial } from "./firebase-social.js?v=f87589f95b23";
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check.js";
 import {
-  getAuth,
+  getAuth, initializeAuth, indexedDBLocalPersistence, browserLocalPersistence,
   GoogleAuthProvider,
   signInWithPopup,
   signInWithCredential,
-  signInWithRedirect,
+  OAuthProvider, EmailAuthProvider, createUserWithEmailAndPassword, signInWithEmailAndPassword,
+  sendEmailVerification, reload, getIdToken, getIdTokenResult, updatePassword,
   getRedirectResult,
   onAuthStateChanged,
   reauthenticateWithPopup,
@@ -38,47 +39,88 @@ if (appCheckSiteKey && !window.StudyRPAndroid) {
     console.error("StudyRP App Check:", error);
   }
 }
-const auth = getAuth(app);
+const clienteInstalado = Boolean(window.StudyRPAndroid) || location.protocol === "studyrp:";
+const auth = clienteInstalado
+  ? initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence] })
+  : getAuth(app);
 iniciarSocial(app, auth);
 iniciarDev(app, auth);
 const db = getFirestore(app);
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: "select_account" });
 
-let confirmarGoogleNativo = null;
-window.StudyRPAndroidGoogleResult = async (idToken) => {
-  try {
-    if (!idToken || typeof idToken !== "string") throw new Error("Token Google inválido.");
-    const credential = GoogleAuthProvider.credential(idToken);
-    if (confirmarGoogleNativo) {
-      confirmarGoogleNativo.resolve(credential);
-      confirmarGoogleNativo = null;
-      return;
-    }
-    const resultado = await signInWithCredential(auth, credential);
-    enviarUsuario(resultado.user);
-  } catch (error) {
-    console.error("StudyRP Android Google Auth:", error);
-    mostrarErro("Não foi possível entrar com Google no APK. Tente novamente.");
-    const button = document.getElementById("auGoogle");
-    if (button) button.disabled = false;
-  }
-};
+auth.languageCode = "pt-BR";
+let solicitacaoNativa = null;
+let criandoConta = false;
 
-window.StudyRPAndroidGoogleError = (message) => {
-  if (confirmarGoogleNativo) {
-    confirmarGoogleNativo.reject(new Error("A confirmação da conta foi cancelada."));
-    confirmarGoogleNativo = null;
-    return;
-  }
-  mostrarErro(message === "cancelled" ? "Login cancelado." : "Não foi possível abrir o login Google no APK.");
-  const button = document.getElementById("auGoogle");
-  if (button) button.disabled = false;
-};
+function mensagemAuth(erro) {
+  const mensagens = {
+    "auth/invalid-email": "Confira o endereço de e-mail.",
+    "auth/email-already-in-use": "Esse e-mail já tem uma conta. Entre com o método usado no cadastro.",
+    "auth/invalid-credential": "Confira seu e-mail e sua senha.",
+    "auth/user-not-found": "Confira seu e-mail e sua senha.",
+    "auth/wrong-password": "A senha informada está incorreta.",
+    "auth/weak-password": "Escolha uma senha com pelo menos seis caracteres.",
+    "auth/too-many-requests": "Aguarde alguns minutos antes de tentar novamente.",
+    "auth/missing-or-invalid-nonce": "O Google não conseguiu confirmar esta tentativa. Abra o seletor de contas e tente novamente.",
+    "auth/network-request-failed": "Verifique sua conexão e tente novamente.",
+    "auth/user-disabled": "O acesso desta conta foi desativado.",
+    "auth/operation-not-allowed": "Este método de login está desativado no Firebase do StudyRP.",
+    "auth/popup-blocked": "Permita a janela do Google neste site e toque novamente em Continuar com o Google.",
+    "auth/popup-closed-by-user": "Login cancelado. Você pode tentar novamente.",
+    "auth/cancelled-popup-request": "Login cancelado.",
+    "auth/unauthorized-domain": "Abra a prévia oficial do StudyRP para entrar com o Google.",
+    "auth/account-exists-with-different-credential": "Esse e-mail já tem uma conta. Entre com o método usado no cadastro.",
+    "auth/user-mismatch": "Confirme a mesma conta que está aberta no StudyRP.",
+    "auth/requires-recent-login": "Entre novamente para confirmar sua identidade."
+  };
+  return mensagens[erro?.code] || (erro?.code ? "O serviço de login não conseguiu concluir. Tente novamente." : erro?.message) || "Tente novamente.";
+}
 
 function mostrarErro(message) {
-  const erro = document.getElementById("auErro");
-  if (erro) erro.textContent = message;
+  document.getElementById("auErro").textContent = message;
+}
+
+function pedirCredencialAndroid() {
+  if (solicitacaoNativa) return Promise.reject(new Error("O seletor de contas já está aberto."));
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => concluir(new Error("O seletor de contas demorou para responder. Tente novamente.")), 120000);
+    function concluir(erro, credencial) {
+      clearTimeout(timer);
+      solicitacaoNativa = null;
+      if (erro) reject(erro); else resolve(credencial);
+    }
+    solicitacaoNativa = concluir;
+    try { window.StudyRPAndroid.signInGoogle(); }
+    catch { concluir(new Error("Não foi possível abrir o seletor de contas do Android.")); }
+  });
+}
+
+window.StudyRPAndroidGoogleResult = (idToken, rawNonce) => {
+  if (!solicitacaoNativa) return;
+  try {
+    if (typeof idToken !== "string" || !idToken) throw new Error("O Google não confirmou a conta selecionada.");
+    const credencial = rawNonce
+      ? new OAuthProvider("google.com").credential({ idToken, rawNonce })
+      : GoogleAuthProvider.credential(idToken);
+    solicitacaoNativa(null, credencial);
+  } catch (erro) { solicitacaoNativa(erro); }
+};
+
+window.StudyRPAndroidGoogleError = codigo => {
+  const mensagens = {
+    cancelled: "Seleção de conta cancelada.",
+    no_account: "Adicione uma conta Google ao Android e tente novamente.",
+    provider: "Atualize o Google Play Services neste aparelho e tente novamente.",
+    configuration: "O Google não reconheceu a assinatura deste APK. Você também pode entrar com e-mail e senha."
+  };
+  solicitacaoNativa?.(new Error(mensagens[codigo] || "Não foi possível confirmar sua conta pelo Android. Tente novamente."));
+};
+
+function usuarioAtual(uid) {
+  const user = auth.currentUser;
+  if (!user || user.uid !== uid) throw new Error("Entre novamente para continuar.");
+  return user;
 }
 
 function validarPerfilEntrada(uid, perfil) {
@@ -146,125 +188,121 @@ async function salvarPerfil(uid, perfil) {
   return { uid, ...seguro };
 }
 
+async function criarConta(email, senha, guardarPerfil) {
+  criandoConta = true;
+  try {
+    const { user } = await createUserWithEmailAndPassword(auth, email, senha);
+    guardarPerfil(user.uid);
+    // O cadastro já existe mesmo se o primeiro e-mail não puder ser enviado.
+    try { await sendEmailVerification(user); }
+    catch (erro) { return { aviso: mensagemAuth(erro) }; }
+    return {};
+  } finally {
+    criandoConta = false;
+    if (auth.currentUser) await enviarUsuario(auth.currentUser);
+  }
+}
+
+async function confirmarEmail(uid) {
+  const user = usuarioAtual(uid);
+  await reload(user);
+  if (!user.emailVerified) throw new Error("A confirmação ainda não chegou. Abra o link enviado ao seu e-mail e tente novamente.");
+  await getIdToken(user, true);
+  await enviarUsuario(user);
+}
+
+async function confirmarSenha(uid, senha) {
+  const user = usuarioAtual(uid);
+  await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, senha));
+  return user;
+}
+
+async function excluirConta(uid, senha) {
+  await auth.authStateReady();
+  const user = usuarioAtual(uid);
+  try {
+    if (typeof senha === "string") await confirmarSenha(uid, senha);
+    else if (window.StudyRPAndroid?.signInGoogle) await reauthenticateWithCredential(user, await pedirCredencialAndroid());
+    else await reauthenticateWithPopup(user, provider);
+  } catch (erro) { throw new Error(mensagemAuth(erro)); }
+  const perfil = doc(db, "profiles", uid);
+  if ((await getDocFromServer(perfil)).exists()) {
+    const amigos = query(collection(db, "social", uid, "friends"), limit(50));
+    let pagina = await getDocsFromServer(amigos);
+    while (!pagina.empty) {
+      const batch = writeBatch(db);
+      for (const amigo of pagina.docs) batch.delete(amigo.ref);
+      await batch.commit();
+      pagina = await getDocsFromServer(amigos);
+    }
+  }
+  await runTransaction(db, async tx => {
+    const registro = await tx.get(perfil);
+    if (registro.exists()) {
+      tx.delete(doc(db, "usernames", registro.data().usuario));
+      tx.delete(perfil);
+    }
+    tx.delete(doc(db, "classMemberships", uid));
+    tx.delete(doc(db, "devSessions", uid));
+  });
+  await deleteUser(user);
+}
+
 window.StudyRPCloud = {
   getProfile: obterPerfil,
   saveProfile: salvarPerfil,
+  criarConta,
+  entrarComSenha: (email, senha) => signInWithEmailAndPassword(auth, email, senha),
+  confirmarEmail,
+  reenviarEmail: uid => sendEmailVerification(usuarioAtual(uid)),
+  alterarSenha: async (uid, atual, nova) => updatePassword(await confirmarSenha(uid, atual), nova),
+  excluirConta,
   entrarComGoogle,
+  mensagemAuth,
   sair: () => signOut(auth)
 };
 
-window.StudyRPGoogle = {
-  async excluirConta(uid) {
-    await auth.authStateReady();
-    const user = auth.currentUser;
-    if (!user || user.uid !== uid) throw new Error("Entre novamente com a sua conta Google.");
-    try {
-      if (window.StudyRPAndroid?.signInGoogle) {
-        const credential = await new Promise((resolve, reject) => {
-          confirmarGoogleNativo = { resolve, reject };
-          window.StudyRPAndroid.signInGoogle();
-        });
-        await reauthenticateWithCredential(user, credential);
-      } else {
-        await reauthenticateWithPopup(user, provider);
-      }
-    } catch (erro) {
-      confirmarGoogleNativo = null;
-      throw new Error(erro.code === "auth/user-mismatch" ? "Selecione a mesma conta Google usada no StudyRP." : "Não foi possível confirmar sua identidade com o Google.");
-    }
-    const perfil = doc(db, "profiles", uid);
-    if ((await getDocFromServer(perfil)).exists()) {
-      const amigos = query(collection(db, "social", uid, "friends"), limit(50));
-      let pagina = await getDocsFromServer(amigos);
-      while (!pagina.empty) {
-        const batch = writeBatch(db);
-        for (const amigo of pagina.docs) batch.delete(amigo.ref);
-        await batch.commit();
-        pagina = await getDocsFromServer(amigos);
-      }
-    }
-    await runTransaction(db, async tx => {
-      const registro = await tx.get(perfil);
-      if (registro.exists()) {
-        tx.delete(doc(db, "usernames", registro.data().usuario));
-        tx.delete(perfil);
-      }
-      tx.delete(doc(db, "classMemberships", uid));
-      tx.delete(doc(db, "devSessions", uid));
-    });
-    await deleteUser(user);
-  }
-};
-
-function enviarUsuario(user) {
-  if (!user) return;
-  window.dispatchEvent(new CustomEvent("studyrp:google-user", {
+async function enviarUsuario(user) {
+  if (!user || criandoConta) return;
+  let provedor = user.providerData[0]?.providerId;
+  try { provedor = (await getIdTokenResult(user)).signInProvider || provedor; } catch {}
+  if (auth.currentUser?.uid !== user.uid || criandoConta) return;
+  window.dispatchEvent(new CustomEvent("studyrp:usuario", {
     detail: {
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName,
-      photoURL: user.photoURL
+      uid: user.uid, email: user.email, emailVerified: user.emailVerified,
+      provider: provedor === "password" ? "password" : "google",
+      displayName: user.displayName, photoURL: user.photoURL
     }
   }));
 }
 
 async function entrarComGoogle() {
   const button = document.getElementById("auGoogle");
+  if (!button || button.disabled) return;
   button.disabled = true;
   mostrarErro("");
-  if (window.StudyRPAndroid && typeof window.StudyRPAndroid.signInGoogle === "function") {
-    try {
-      window.StudyRPAndroid.signInGoogle();
-    } catch (error) {
-      mostrarErro("Não foi possível iniciar o Google no APK. Tente novamente.");
-      button.disabled = false;
-    }
-    return;
-  }
   try {
-    const resultado = await signInWithPopup(auth, provider);
-    enviarUsuario(resultado.user);
-  } catch (error) {
-    if (error.code === "auth/popup-closed-by-user" || error.code === "auth/cancelled-popup-request") {
-      mostrarErro("Login cancelado.");
-    } else if (error.code === "auth/popup-blocked") {
-      try {
-        await signInWithRedirect(auth, provider);
-        return;
-      } catch (redirectError) {
-        mostrarErro("Não foi possível abrir o Google. Tente novamente.");
-      }
-    } else if (error.code === "auth/unauthorized-domain") {
-      mostrarErro("O login com o Google está disponível na prévia oficial do StudyRP.");
-    } else if (error.code === "auth/operation-not-allowed") {
-      mostrarErro("O login com o Google está desativado neste projeto.");
-    } else {
-      mostrarErro("Erro ao entrar com Google. Verifique sua conexão e tente novamente.");
-      console.error("StudyRP Google Auth:", error);
-    }
-  } finally {
-    button.disabled = false;
+    if (window.StudyRPAndroid?.signInGoogle) await signInWithCredential(auth, await pedirCredencialAndroid());
+    else await signInWithPopup(auth, provider);
+  } catch (erro) {
+    mostrarErro(erro.code === "auth/invalid-credential" ? "O Google recusou a credencial. Escolha novamente a sua conta." : mensagemAuth(erro));
   }
+  finally { button.disabled = false; }
 }
 
 document.getElementById("auGoogle")?.addEventListener("click", entrarComGoogle);
-
 window.addEventListener("studyrp:signout-request", async () => {
   try {
     await signOut(auth);
     window.dispatchEvent(new Event("studyrp:signout-complete"));
-  } catch (error) {
-    console.error("StudyRP sign out:", error);
-    window.dispatchEvent(new Event("studyrp:signout-error"));
-  }
+  } catch { window.dispatchEvent(new Event("studyrp:signout-error")); }
 });
 
-getRedirectResult(auth).catch((error) => {
-  console.error("StudyRP Google redirect:", error);
-  mostrarErro("Não foi possível concluir o login com Google. Tente novamente.");
-});
-
-onAuthStateChanged(auth, (user) => {
+// Ainda consome um retorno iniciado por uma versão anterior da prévia Web.
+if (!clienteInstalado) {
+  getRedirectResult(auth).catch(erro => mostrarErro(mensagemAuth(erro)));
+}
+onAuthStateChanged(auth, user => {
   if (user) enviarUsuario(user);
-  else window.dispatchEvent(new Event("studyrp:google-signed-out"));
+  else window.dispatchEvent(new Event("studyrp:sem-usuario"));
 });

@@ -732,8 +732,8 @@ button:disabled { cursor: wait; opacity: .68; }
 #pessCorpo .social-text:empty, .erro:empty { display: none; }
 #pessCorpo section .social-text + .social-text { margin-top: 10px; }
 
-/* Caderno */
-:root:has(.app[data-estilo="3"]) {
+/* Paleta clara */
+:root[data-tema="claro"] {
   color-scheme: light;
   --bg: #f5f3eb;
   --card: #fffcf5;
@@ -744,19 +744,19 @@ button:disabled { cursor: wait; opacity: .68; }
   --gold: #865b21;
   --green: #34855b;
 }
-:root:has(.app[data-estilo="3"]) :is(.sheet, .toast, .zoomcard, .grp, .lista, .mgrp, .opts) {
+:root[data-tema="claro"] :is(.sheet, .toast, .zoomcard, .grp, .lista, .mgrp, .opts) {
   background: var(--card);
   color: var(--text);
   border: 1px solid var(--line);
 }
-:root:has(.app[data-estilo="3"]) :is(.row + .row, .mem + .mem)::before { background: var(--line); }
-:root:has(.app[data-estilo="3"]) .lista > * + * { border-top-color: var(--line); }
-:root:has(.app[data-estilo="3"]) :is(.primary:not(.danger), .social-add, .radio.on, .sw.on) { background: var(--blue); }
-:root:has(.app[data-estilo="3"]) :is(.stsalvar, .linkbtn, .chip[data-dev]) { color: var(--blue); }
-:root:has(.app[data-estilo="3"]) :is(.erro, .row.red, .lista .red) { color: #a53430; }
-:root:has(.app[data-estilo="3"]) .danger { background: #a53430; }
-:root:has(.app[data-estilo="3"]) .zctl input { accent-color: var(--blue); }
-:root:has(.app[data-estilo="3"]) .avatar { background: #286751; }
+:root[data-tema="claro"] :is(.row + .row, .mem + .mem)::before { background: var(--line); }
+:root[data-tema="claro"] .lista > * + * { border-top-color: var(--line); }
+:root[data-tema="claro"] :is(.primary:not(.danger), .social-add, .radio.on, .sw.on) { background: var(--blue); }
+:root[data-tema="claro"] :is(.stsalvar, .linkbtn, .chip[data-dev]) { color: var(--blue); }
+:root[data-tema="claro"] :is(.erro, .row.red, .lista .red) { color: #a53430; }
+:root[data-tema="claro"] .danger { background: #a53430; }
+:root[data-tema="claro"] .zctl input { accent-color: var(--blue); }
+:root[data-tema="claro"] .avatar { background: #286751; }
 .app[data-estilo="3"] { --heading: "Iowan Old Style", "Palatino Linotype", Georgia, serif; }
 .app[data-estilo="3"] header {
   order: 0;
@@ -837,7 +837,7 @@ button:disabled { cursor: wait; opacity: .68; }
 .opt[data-estilo="3"] .mini .p { background: #c5cbc1; }
 @media (hover: hover) {
   .app .grid .btn:hover { border-color: var(--muted); }
-  .app[data-estilo="3"] .grid .btn:hover { background: #f9faf3; filter: none; }
+  .app[data-estilo="3"] .grid .btn:hover { background: color-mix(in srgb, var(--card) 94%, var(--text)); filter: none; }
 }
 @media (min-width: 760px) {
   #pessCorpo form { width: min(100%, 40rem); margin-inline: auto; }
@@ -896,4 +896,34 @@ button:disabled { cursor: wait; opacity: .68; }
   .sttop { grid-template-columns: 44px minmax(0, 1fr) auto; }
   .opts { flex-wrap: wrap; }
   .opts button { min-width: min(6rem, 100%); }
+}
+
+.tema-login, .tema-controle { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.tema-login { color: var(--muted); font-size: .9rem; }
+[data-seletor-tema] {
+  min-height: 42px; max-width: 65%; padding: .4rem .65rem;
+  border: 1px solid var(--line); border-radius: .65rem;
+  background: var(--card); color: var(--text); font: inherit;
+}
+#resultadoEmail:empty { display: none; }
+#excluirSenha { padding: .7rem; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: .65rem; font: inherit; }
+:root[data-tema="escuro"] .app[data-estilo="3"] .c-pessoas { --ink: #dbabe2; }
+:root[data-tema="escuro"] .app[data-estilo="3"] :is(.c-turma, .btn.c-resolver) { --ink: #95d7b7; }
+:root[data-tema="escuro"] .app[data-estilo="3"] .c-ajuda { --ink: #edca88; }
+:root[data-tema="escuro"] .app[data-estilo="3"] .c-estudar { --ink: #f6ac97; }
+:root[data-tema="claro"] .app :is(.c-pessoas,.c-turma,.c-estudar,.c-ajuda,.c-resolver) { --c: var(--blue); }
+:root[data-tema="claro"] .sw:not(.on) { background: #66746e; }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes entrada-tela { from { opacity: 0; translate: 0 7px; } to { opacity: 1; translate: 0 0; } }
+  @keyframes entrada-dialogo { from { opacity: 0; scale: .97; } to { opacity: 1; scale: 1; } }
+  :is(.authbox, .picker, .perfil, .cfg, .stscreen):not(.hidden), .app:not(.hidden) > header {
+    animation: entrada-tela 240ms cubic-bezier(.2,.7,.25,1) backwards;
+  }
+  .app:not(.hidden) :is(.grid .btn, .profile) {
+    animation: entrada-tela 240ms cubic-bezier(.2,.7,.25,1) backwards;
+  }
+  .app .grid .btn:nth-child(2) { animation-delay: 30ms; }
+  .app .grid .btn:nth-child(3) { animation-delay: 50ms; }
+  .app .grid .btn:nth-child(n+4), .app .profile { animation-delay: 75ms; }
+  #avisoResolver[open] { animation: entrada-dialogo 160ms ease-out; }
 }

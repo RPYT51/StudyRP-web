@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="studyrp-version" content="0.2">
 <meta name="theme-color" content="#2b2d31">
 <meta name="firebase-app-check-site-key" content="">
 <title>StudyRP</title>
-<link rel="stylesheet" href="assets/css/style.css?v=22077066629d">
-<link rel="stylesheet" href="assets/css/dialog.css?v=22077066629d">
+<script src="assets/js/tema.js?v=f87589f95b23"></script>
+<link rel="stylesheet" href="assets/css/style.css?v=f87589f95b23">
+<link rel="stylesheet" href="assets/css/dialog.css?v=f87589f95b23">
 
 <style>html[data-preview-locked] { display: none !important; }</style>
 <meta name="robots" content="noindex,nofollow">
@@ -22,8 +24,12 @@
     <div class="atabs"><button id="tabEntrar" class="on">Entrar</button><button id="tabCriar">Criar conta</button></div>
     <div class="box">
       <div class="field">
-        <label for="auUser">Nome de usuário</label>
-        <div class="inp"><input id="auUser" maxlength="20" autocomplete="username" autocapitalize="off" spellcheck="false"></div>
+        <label id="auUserLabel" for="auUser">E-mail ou usuário deste aparelho</label>
+        <div class="inp"><input id="auUser" maxlength="254" autocomplete="username" autocapitalize="off" spellcheck="false"></div>
+      </div>
+      <div class="field so-reg hidden">
+        <label for="auEmail">E-mail</label>
+        <div class="inp"><input id="auEmail" type="email" maxlength="254" autocomplete="email" autocapitalize="off" spellcheck="false"></div>
       </div>
       <div class="field so-reg hidden">
         <label for="auNome">Nome de exibição (opcional)</label>
@@ -41,12 +47,12 @@
         <label for="auSenha2">Confirmar senha</label>
         <div class="inp"><input id="auSenha2" type="password" autocomplete="new-password"></div>
       </div>
-      <p class="erro" id="auErro" style="margin-top:-6px"></p>
+      <p class="erro" id="auErro" role="status" style="margin-top:-6px"></p>
       <button class="primary" id="auOk">Entrar</button>
     </div>
     <div class="aou">ou</div>
     <button class="gbtn" id="auGoogle"><i>G</i>Continuar com o Google</button>
-    <p class="anota">O login com senha fica neste aparelho. Com o Google, você pode adicionar amigos e participar de turmas.</p>
+
     <p id="conexaoLocalMsg" role="status" class="erro"></p>
     <button id="cancelarConexao" class="secondary" type="button" hidden>Voltar para minha conta</button>
     </div>
@@ -61,9 +67,18 @@
         <p id="gpError" class="erro" role="status"></p>
         <button id="gpSave" class="primary" type="submit">Concluir cadastro</button>
       </form>
+      <div id="verificarEmail" class="authgroup" hidden>
+        <button id="emailConfirmado" class="primary" type="button">Já confirmei meu e-mail</button>
+        <button id="reenviarEmail" class="secondary" type="button">Reenviar e-mail</button>
+        <p id="resultadoEmail" class="subdesc" role="status"></p>
+      </div>
       <button id="repetirPerfilGoogle" class="primary" type="button" hidden>Tentar novamente</button>
+      <button id="perfilDepois" class="secondary" type="button" hidden>Abrir início e completar depois</button>
       <button id="voltarPerfilGoogle" class="secondary" type="button">Voltar</button>
     </section>
+    <label class="tema-login">Tema
+      <select id="temaLogin" data-seletor-tema aria-label="Tema do aplicativo"><option value="sistema">Do aparelho</option><option value="claro">Claro</option><option value="escuro">Escuro</option></select>
+    </label>
   </div>
 </div>
 
@@ -376,7 +391,7 @@
 <div class="toast" id="toast" role="status"></div>
 <input type="file" id="arquivoFoto" accept="image/*" class="vh">
 
-<script src="assets/js/app.js?v=22077066629d"></script>
-<script type="module" src="assets/js/firebase-auth.js?v=22077066629d"></script>
+<script src="assets/js/app.js?v=f87589f95b23"></script>
+<script type="module" src="assets/js/firebase-auth.js?v=f87589f95b23"></script>
 </body>
 </html>

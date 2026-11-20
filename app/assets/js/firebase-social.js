@@ -12,13 +12,18 @@ export function prepararConvite(db, classId, uid) {
   };
 }
 
+export function sessaoPertenceA(uid) {
+  const sessao = localStorage.getItem("studyrp-sessao");
+  return Boolean(uid) && (sessao === "google_" + uid || sessao === "firebase_" + uid);
+}
+
 export function iniciarSocial(app, auth) {
   const db = getFirestore(app);
 
   async function usuario() {
     await auth.authStateReady();
     const user = auth.currentUser;
-    if (!user || localStorage.getItem("studyrp-sessao") !== "google_" + user.uid) throw Object.assign(new Error("Entre com o Google para compartilhar dados entre dispositivos."), { code: "conta/sessao" });
+    if (!user || !sessaoPertenceA(user.uid)) throw Object.assign(new Error("Conecte sua conta para compartilhar dados entre dispositivos."), { code: "conta/sessao" });
     const profile = await getDocFromServer(doc(db, "profiles", user.uid));
     if (!profile.exists()) throw Object.assign(new Error("Escolha seu nome de usuário para usar os recursos compartilhados."), { code: "conta/perfil" });
     return { uid: user.uid, username: profile.data().usuario };
