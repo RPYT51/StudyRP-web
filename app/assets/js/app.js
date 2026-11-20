@@ -257,9 +257,10 @@
   }
 
   function secoes() {
-    const em = () => toast("Em breve");
     const A = {
-      "Conta": () => abrirConta(), "Apps conectados": abrirApps, "Escanear o código QR": abrirQR, "Aparência": abrirAparencia,
+      "Conta": () => abrirConta(), "Dispositivos": abrirDispositivos, "Apps conectados": abrirApps, "Escanear o código QR": abrirQR, "Aparência": abrirAparencia,
+      "Acessibilidade": () => abrirAparencia(true), "Idioma": abrirIdioma,
+      "Notificações": abrirNotificacoes, "Novidades": abrirNovidades,
       "Informações do dispositivo": abrirDispositivo, "Informações do cliente": abrirCliente, "Registros": abrirRegistros, "Ações de cache": abrirCache,
       "Cargos": () => abrirCargos(), "Versão do App": () => toast("StudyRP " + VERSAO), "Sair": sair
     };
@@ -269,7 +270,7 @@
       { t: "Config. do aplicativo", itens: [
         { i: "aparencia", l: "Aparência", v: "Estilo " + app.dataset.estilo },
         { i: "acess", l: "Acessibilidade" }, { i: "idioma", l: "Idioma", v: "Português, Brasil" },
-        { i: "chat", l: "Bate-papo" }, { i: "sino", l: "Notificações" } ] },
+        { i: "sino", l: "Notificações" } ] },
       { t: "Novidades", itens: [ { i: "info", l: "Novidades" } ] },
       { t: "", itens: [ { i: "sair", l: "Sair", red: true } ] }
     ];
@@ -278,7 +279,7 @@
       { i: "ver", l: "Versão do App", v: "StudyRP " + VERSAO, semSeta: true },
       { i: "phone", l: "Informações do dispositivo", v: (navigator.platform || "-") + " " + window.innerWidth + "x" + window.innerHeight, semSeta: true },
       { i: "clip", l: "Informações do cliente" }, { i: "log", l: "Registros" }, { i: "cache", l: "Ações de cache" } ] });
-    s.forEach(sec => sec.itens.forEach(it => { it.a = A[it.l] || em; }));
+    s.forEach(sec => sec.itens.forEach(it => { it.a = A[it.l]; }));
     return s;
   }
 
@@ -458,7 +459,8 @@
 
   // campo editável (nome de usuário / nome exibido)
   let editAplicar = null;
-  function editarCampo(titulo, valor, max, aplicar) {
+  function editarCampo(titulo, valor, max, aplicar, tipo = "text") {
+    $("editIn").type = tipo;
     $("editT").textContent = titulo; $("editIn").value = valor; $("editIn").maxLength = max; $("editErro").textContent = ""; editAplicar = aplicar;
     abrirSheet("sheetEdit"); setTimeout(() => $("editIn").focus(), 60);
   }
@@ -532,38 +534,124 @@
   function abrirConta(semTrocarTela) {
     $("subCorpo").innerHTML =
       '<div class="glabel">Informações de conta</div><div class="grp plain">' +
-        linhaSimples("user", "Nome de usuário", usuarioAtual()) + linhaSimples("nome", "Nome exibido", dados.nome) + '</div>' +
+        linhaSimples("user", "Nome de usuário", usuarioAtual()) + linhaSimples("nome", "Nome exibido", dados.nome) +
+        linhaSimples("telefone", "Telefone", dados.telefone || "Não informado") + '</div>' +
       '<div class="glabel">Segurança</div><div class="grp plain">' + linhaSimples("senha", "Senha") + '</div>' +
       '<div class="glabel">Gerenciamento da conta</div><div class="grp plain">' +
-        linhaSimples("desativar", "Desativar conta") + linhaSimples("excluir", "Excluir conta", "", true) + '</div>';
-    const em = () => toast("Em breve");
+        linhaSimples("excluir", "Excluir conta", "", true) + '</div>';
     ligarLinhas({
       user: () => editarCampo("Nome de usuário", usuarioAtual(), 20, (v) => {
         v = v.toLowerCase(); if (!/^[a-z0-9._]{2,20}$/.test(v)) return "Use 2 a 20 letras minúsculas, números, ponto ou _.";
         dados.usuario = v; return null;
       }),
       nome: () => editarCampo("Nome exibido", dados.nome, 24, (v) => { if (!v) return "O nome não pode ficar vazio."; dados.nome = v; return null; }),
-      senha: em, desativar: em, excluir: confirmarExclusaoConta
+      telefone: () => editarCampo("Telefone (opcional)", dados.telefone || "", 20, (v) => { dados.telefone = v; }, "tel"),
+      senha: abrirAlteracaoSenha, excluir: confirmarExclusaoConta
     });
     if (!semTrocarTela) abrirSub("Conta"); else $("subT").textContent = "Conta";
   }
 
+  function abrirDispositivos() {
+    $("subCorpo").innerHTML = '<div class="glabel">Sessão atual</div><div class="grp plain">' +
+      linhaSimples("sair", "Sair deste dispositivo") + '</div>' +
+      '<p class="subdesc" id="sessaoDispositivo"></p>';
+    $("sessaoDispositivo").textContent = (navigator.userAgentData?.platform || navigator.platform || "Este dispositivo") +
+      " · A lista de sessões de outros dispositivos ainda não está disponível.";
+    ligarLinhas({ sair });
+    abrirSub("Dispositivos");
+  }
+
   function abrirApps() {
-    $("subCorpo").innerHTML =
-      '<div class="subhead"><b>Conexões</b><button class="linkbtn" id="addCon">Adicionar</button></div>' +
-      '<p class="subdesc">Estas são contas de outras plataformas. Conectá-las aqui pode liberar novos recursos no StudyRP.</p>' +
-      '<p class="mvazio">Nenhuma conexão ainda.</p>';
-    $("addCon").addEventListener("click", () => toast("Em breve"));
+    const google = contas()[SESSAO]?.provider === "google";
+    $("subCorpo").innerHTML = '<div class="glabel">Provedor de login</div><p class="subdesc"></p>';
+    $("subCorpo").lastElementChild.textContent = google
+      ? "Google está vinculado ao login desta conta."
+      : "Você entra com usuário e senha. Nenhum provedor externo está vinculado.";
     abrirSub("Apps conectados");
+  }
+
+  function abrirIdioma() {
+    $("subCorpo").innerHTML = '<div class="glabel">Idioma do aplicativo</div>' +
+      '<p class="subdesc" lang="pt-BR">Português (Brasil) é o idioma disponível.</p>';
+    abrirSub("Idioma");
+  }
+
+  function abrirNotificacoes() {
+    $("subCorpo").innerHTML = '<p class="mvazio">Nenhuma notificação nova.</p>' +
+      '<p class="subdesc">Esta versão ainda não recebe notificações push.</p>';
+    abrirSub("Notificações");
+  }
+
+  async function abrirNovidades() {
+    $("subCorpo").innerHTML = '<div class="glabel">Versão instalada</div><p id="versaoInstalada" class="subdesc"></p>' +
+      '<div class="glabel">Última versão publicada</div><p id="resumoRelease" class="subdesc" role="status">Consultando…</p>';
+    $("versaoInstalada").textContent = "StudyRP " + VERSAO;
+    const resumo = $("resumoRelease");
+    abrirSub("Novidades");
+    try {
+      const resposta = await fetch("https://api.github.com/repos/RPYT51/StudyRP-web/releases/latest", { cache: "no-store" });
+      if (!resposta.ok) throw new Error();
+      const release = await resposta.json();
+      resumo.textContent = [release.tag_name, release.body?.trim()].filter(Boolean).join("\n\n");
+      resumo.style.whiteSpace = "pre-wrap";
+    } catch {
+      resumo.textContent = "Não foi possível consultar a última versão. Tente novamente quando estiver conectado.";
+    }
+  }
+
+  function abrirAlteracaoSenha() {
+    const conta = contas()[SESSAO];
+    if (conta?.provider === "google") {
+      abrirInfo("Senha", "A senha usada neste login é gerenciada pela sua Conta Google.");
+      return;
+    }
+    $("subCorpo").innerHTML = `<form id="alterarSenha" class="box">
+      <div class="field"><label for="senhaAtual">Senha atual</label><div class="inp"><input id="senhaAtual" type="password" autocomplete="current-password" required></div></div>
+      <div class="field"><label for="senhaNova">Nova senha</label><div class="inp"><input id="senhaNova" type="password" autocomplete="new-password" minlength="6" required></div></div>
+      <div class="field"><label for="senhaConfirmada">Confirmar nova senha</label><div class="inp"><input id="senhaConfirmada" type="password" autocomplete="new-password" minlength="6" required></div></div>
+      <p class="erro" role="status"></p><button class="primary" type="submit">Salvar nova senha</button>
+    </form>`;
+    $("alterarSenha").addEventListener("submit", async event => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const botao = form.querySelector("button");
+      const erro = form.querySelector(".erro");
+      const atual = $("senhaAtual").value;
+      const nova = $("senhaNova").value;
+      erro.textContent = "";
+      if (nova.length < 6 || nova !== $("senhaConfirmada").value) {
+        erro.textContent = "Digite a mesma nova senha nos dois campos, com pelo menos 6 caracteres.";
+        return;
+      }
+      botao.disabled = true;
+      try {
+        if (!conta || await hashSenha(conta.sal, atual) !== conta.hash) throw new Error("Senha atual incorreta.");
+        const sal = Array.from(crypto.getRandomValues(new Uint8Array(16)), v => v.toString(16).padStart(2, "0")).join("");
+        const hash = await hashSenha(sal, nova);
+        const todas = contas();
+        if (ler(CHAVE_SESSAO) !== SESSAO || todas[SESSAO]?.hash !== conta.hash) {
+          throw new Error("A sessão ou a senha mudou. Abra a tela Conta novamente.");
+        }
+        todas[SESSAO] = { ...todas[SESSAO], sal, hash };
+        localStorage.setItem(CHAVE_CONTAS, JSON.stringify(todas));
+        if (form.isConnected) { abrirConta(); toast("Senha alterada neste dispositivo."); }
+      } catch (error) {
+        erro.textContent = error.message || "Não foi possível alterar a senha.";
+      } finally {
+        botao.disabled = false;
+      }
+    });
+    abrirSub("Alterar senha");
   }
 
   function aplicarZoom() {
     const z = Math.min(130, Math.max(80, +dados.zoom || 100));
     document.documentElement.style.fontSize = (16 * z / 100 * (dados.textoMenor ? 0.92 : 1)) + "px";
   }
-  function abrirAparencia() {
+  function abrirAparencia(apenasAcessibilidade = false) {
+    apenasAcessibilidade = apenasAcessibilidade === true;
     $("subCorpo").innerHTML =
-      '<div class="glabel">Tema</div><div class="grp plain">' + linhaSimples("estilo", "Estilo da tela inicial", "Estilo " + app.dataset.estilo) + '</div>' +
+      (apenasAcessibilidade ? "" : '<div class="glabel">Tema</div><div class="grp plain">' + linhaSimples("estilo", "Estilo da tela inicial", "Estilo " + app.dataset.estilo) + '</div>') +
       '<div class="glabel">Nível de zoom</div><div class="zoomcard">' +
         '<div class="zrow"><b>Nível de zoom</b><span id="zVal"></span></div>' +
         '<div class="zctl"><button class="zbtn" id="zMenos" aria-label="Diminuir">' + svg("minus") + '</button>' +
@@ -579,7 +667,7 @@
     $("zReset").addEventListener("click", () => { dados.textoMenor = false; mudar(100); });
     $("swTexto").addEventListener("click", () => { dados.textoMenor = !dados.textoMenor; gravar(CHAVE_PERFIL, JSON.stringify(dados)); aplicarZoom(); mostrar(); });
     ligarLinhas({ estilo: () => tela("picker") });
-    mostrar(); abrirSub("Aparência");
+    mostrar(); abrirSub(apenasAcessibilidade ? "Acessibilidade" : "Aparência");
   }
 
   // ----- QR -----
@@ -714,7 +802,7 @@
   function sair() {
     abrirInfo("Sair da conta", "Você vai voltar para a tela de login.", [
       { txt: "Sair", cls: "danger", fn: () => {
-        if (location.protocol === "studyrp:") {
+        if (contas()[SESSAO]?.provider !== "google") {
           localStorage.removeItem(CHAVE_SESSAO);
           location.reload();
         } else {
@@ -794,7 +882,7 @@
   document.addEventListener("visibilitychange", () => { if (!document.hidden) verificarAtualizacao(); });
 
   setInterval(verificarExpira, 30000);
-  $("sino").addEventListener("click", () => toast("Nenhuma notificação nova"));
+  $("sino").addEventListener("click", () => abrirInfo("Notificações", "Nenhuma notificação nova."));
   $("fecharPerfil").addEventListener("click", () => { modoPerfil(false); tela("app"); });
   $("optEstilo").addEventListener("click", () => tela("picker"));
   $("amigos").addEventListener("click", () => toast("Amigos em breve"));
