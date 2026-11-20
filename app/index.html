@@ -19,13 +19,17 @@
     <p class="atag">Aprenda. Compartilhe. Evolua.</p>
     <div class="atabs"><button id="tabEntrar" class="on">Entrar</button><button id="tabCriar">Criar conta</button></div>
     <div class="box">
-      <div class="field so-reg hidden">
-        <label for="auNome">Nome exibido</label>
-        <div class="inp"><input id="auNome" maxlength="24" autocomplete="off"></div>
-      </div>
       <div class="field">
         <label for="auUser">Nome de usuário</label>
         <div class="inp"><input id="auUser" maxlength="20" autocomplete="username" autocapitalize="off" spellcheck="false"></div>
+      </div>
+      <div class="field so-reg hidden">
+        <label for="auNome">Nome de exibição (opcional)</label>
+        <div class="inp"><input id="auNome" maxlength="24" autocomplete="nickname" placeholder="Se ficar em branco, usamos seu nome de usuário"></div>
+      </div>
+      <div class="field so-reg hidden">
+        <label for="auTelefone">Telefone (opcional)</label>
+        <div class="inp"><input id="auTelefone" type="tel" maxlength="20" autocomplete="tel"></div>
       </div>
       <div class="field">
         <label for="auSenha">Senha</label>

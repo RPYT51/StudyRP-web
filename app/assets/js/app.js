@@ -651,8 +651,8 @@
       const c = todas[user];
       if (!c || (await hashSenha(c.sal, senha)) !== c.hash) return erro("Usuário ou senha incorretos.");
     } else {
-      const nome = $("auNome").value.trim();
-      if (!nome) return erro("Digite um nome exibido.");
+      const nome = $("auNome").value.trim() || user;
+      const telefone = $("auTelefone").value.trim();
       if (!/^[a-z0-9._]{2,20}$/.test(user)) return erro("Usuário: 2 a 20 letras minúsculas, números, ponto ou _.");
       if (senha.length < 6) return erro("A senha precisa ter pelo menos 6 caracteres.");
       if (senha !== $("auSenha2").value) return erro("As senhas não são iguais.");
@@ -660,7 +660,7 @@
       const sal = Math.random().toString(36).slice(2) + Date.now().toString(36);
       todas[user] = { sal: sal, hash: await hashSenha(sal, senha) };
       gravar(CHAVE_CONTAS, JSON.stringify(todas));
-      gravar("studyrp-perfil-" + user, JSON.stringify({ nome: nome, usuario: user, desde: new Date().toISOString() }));
+      gravar("studyrp-perfil-" + user, JSON.stringify({ nome, usuario: user, telefone, desde: new Date().toISOString() }));
     }
     gravar(CHAVE_SESSAO, user);
     location.reload();
@@ -681,7 +681,7 @@
   $("tabEntrar").addEventListener("click", () => setModoAuth("entrar"));
   $("tabCriar").addEventListener("click", () => setModoAuth("criar"));
   $("auOk").addEventListener("click", enviarAuth);
-  ["auNome", "auUser", "auSenha", "auSenha2"].forEach(id => $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") enviarAuth(); }));
+  ["auUser", "auNome", "auTelefone", "auSenha", "auSenha2"].forEach(id => $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") enviarAuth(); }));
   window.addEventListener("studyrp:google-user", (event) => {
     const user = event.detail;
     if (!user || !user.uid) return;
