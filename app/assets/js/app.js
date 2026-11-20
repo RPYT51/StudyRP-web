@@ -443,7 +443,7 @@
   function abrirCache() {
     cacheConf = false;
     abrirLista("Ações de cache", [
-      { ic: "cachesave", l: "Gravar cache", a: () => { try { localStorage.setItem("studyrp-cache", JSON.stringify({ t: Date.now(), dados })); } catch (e) {} log("Cache gravado"); toast("Cache gravado"); } },
+      { ic: "cachesave", l: "Gravar cache", a: () => { try { localStorage.setItem("studyrp-cache", JSON.stringify({ t: Date.now(), conta: SESSAO, dados })); } catch (e) {} log("Cache gravado"); toast("Cache gravado"); } },
       { ic: "file", l: "Calcular tamanho", a: () => {
         let n = 0; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); n += k.length + (localStorage.getItem(k) || "").length; } } catch (e) {}
         toast("Tamanho: " + (n * 2 / 1024).toFixed(1) + " KB");
@@ -483,6 +483,52 @@
   function abrirSub(titulo) { $("subT").textContent = titulo; tela("sub"); }
   $("subVoltar").addEventListener("click", () => { renderConfig(); tela("config"); });
 
+  let excluindoConta = false;
+  function confirmarExclusaoConta() {
+    const conta = contas()[SESSAO];
+    if (!SESSAO || !conta || excluindoConta) return;
+    const google = conta.provider === "google";
+    const mensagem = google
+      ? "Sua conta StudyRP e os dados deste perfil no aparelho serão apagados. Você vai confirmar sua identidade pelo Google."
+      : "Sua conta StudyRP e os dados deste perfil serão apagados deste aparelho.";
+    abrirInfo("Excluir conta?", mensagem + " Essa ação não pode ser desfeita.", [
+      { txt: "Cancelar" },
+      { txt: "Excluir minha conta", cls: "danger", fn() {
+        if (excluindoConta) return false;
+        const botao = this;
+        excluindoConta = true;
+        botao.disabled = true;
+        void (async () => {
+          try {
+            if (ler(CHAVE_SESSAO) !== SESSAO) throw new Error("Entre novamente para excluir a sua conta.");
+            if (google) {
+              if (!window.StudyRPGoogle || window.StudyRPCloud) {
+                throw new Error("A exclusão desta conta Google está indisponível nesta versão.");
+              }
+              await window.StudyRPGoogle.excluirConta(conta.uid);
+            }
+            const todas = contas();
+            delete todas[SESSAO];
+            localStorage.removeItem(CHAVE_PERFIL);
+            const cache = ler("studyrp-cache");
+            if (cache) {
+              let contaDoCache;
+              try { contaDoCache = JSON.parse(cache)?.conta; } catch {}
+              if (!contaDoCache || contaDoCache === SESSAO) localStorage.removeItem("studyrp-cache");
+            }
+            localStorage.setItem(CHAVE_CONTAS, JSON.stringify(todas));
+            if (ler(CHAVE_SESSAO) === SESSAO) localStorage.removeItem(CHAVE_SESSAO);
+            location.reload();
+          } catch (error) {
+            excluindoConta = false;
+            abrirInfo("Não foi possível excluir a conta", error.message || "Tente novamente.");
+          }
+        })();
+        return false;
+      } }
+    ]);
+  }
+
   function abrirConta(semTrocarTela) {
     $("subCorpo").innerHTML =
       '<div class="glabel">Informações de conta</div><div class="grp plain">' +
@@ -497,7 +543,7 @@
         dados.usuario = v; return null;
       }),
       nome: () => editarCampo("Nome exibido", dados.nome, 24, (v) => { if (!v) return "O nome não pode ficar vazio."; dados.nome = v; return null; }),
-      senha: em, desativar: em, excluir: em
+      senha: em, desativar: em, excluir: confirmarExclusaoConta
     });
     if (!semTrocarTela) abrirSub("Conta"); else $("subT").textContent = "Conta";
   }

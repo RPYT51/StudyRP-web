@@ -563,7 +563,8 @@ header .top { position: relative; }
     overflow-y: auto;
   }
   .perfil .vstack, .perfil #edit { max-width: 720px; margin-inline: auto; }
-  .cfg #cfgCorpo, .cfg #subCorpo, .cfg #pessCorpo, .cfg #crgPessoas { max-width: 780px; margin-inline: auto; }
+  .cfg #cfgCorpo, .cfg #subCorpo, .cfg #pessCorpo, .cfg #crgPessoas { width: 100%; }
+  .cfg #cfgCorpo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; align-items: start; }
   .picker {
     width: min(900px, calc(100% - 64px));
     align-content: center;

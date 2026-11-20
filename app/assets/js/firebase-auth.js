@@ -6,6 +6,8 @@ import {
   signInWithRedirect,
   getRedirectResult,
   onAuthStateChanged,
+  reauthenticateWithPopup,
+  deleteUser,
   signOut
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 
@@ -22,6 +24,20 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({ prompt: "select_account" });
+
+window.StudyRPGoogle = {
+  async excluirConta(uid) {
+    const user = auth.currentUser;
+    if (!user || user.uid !== uid) throw new Error("Entre novamente com sua conta Google para excluí-la.");
+    try {
+      await reauthenticateWithPopup(user, provider);
+      await deleteUser(user);
+    } catch (error) {
+      if (error.code === "auth/user-mismatch") throw new Error("Selecione a mesma conta Google usada no StudyRP.");
+      throw new Error("Não foi possível confirmar a exclusão pelo Google. Tente novamente.");
+    }
+  }
+};
 
 function mostrarErro(message) {
   const erro = document.getElementById("auErro");
