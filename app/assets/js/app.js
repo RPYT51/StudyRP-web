@@ -487,7 +487,7 @@
     void carregarSocial(corpo, () => social().listarAtividades(), (atividades) => {
       if (!atividades.length) corpo.append(socialTexto("Nenhuma atividade publicada."));
       for (const atividade of atividades) {
-        corpo.append(botaoSocial(atividade.title, () => abrirResolver(atividade, abrirAtividades)));
+        corpo.append(botaoSocial(atividade.title, () => abrirRascunhoAtividade(atividade)));
       }
     });
   }
@@ -522,17 +522,17 @@
     });
   }
 
-  function abrirResolver(atividade, voltar) {
-    const corpo = painelSocial("Resolver", voltar);
-    const chave = "studyrp-rascunho/" + SESSAO + "/" + (atividade?.id || "livre");
+  function abrirRascunhoAtividade(atividade) {
+    const corpo = painelSocial(atividade.title, abrirAtividades);
+    const chave = "studyrp-rascunho/" + SESSAO + "/" + atividade.id;
     let salvo = {};
     try { salvo = JSON.parse(ler(chave)) || {}; } catch {}
     const form = document.createElement("form");
     form.className = "box";
     const label = document.createElement("label");
     const enunciado = document.createElement("textarea");
-    enunciado.value = atividade?.prompt || salvo.enunciado || "";
-    enunciado.readOnly = Boolean(atividade);
+    enunciado.value = atividade.prompt || salvo.enunciado || "";
+    enunciado.readOnly = true;
     enunciado.maxLength = 5000;
     label.append("Enunciado", enunciado);
     const respostaLabel = document.createElement("label");
@@ -554,7 +554,9 @@
   }
 
   $("btnTurma").onclick = abrirTurma;
-  $("btnResolver").onclick = () => abrirResolver();
+  $("btnResolver").onclick = () => {
+    painelSocial("Resolver").append(socialTexto("Em breve, você poderá resolver exercícios com ajuda de IA."));
+  };
   const atualizarTurmaInicial = () => {
     if (contas()[SESSAO]?.provider === "google" && window.StudyRPSocial) {
       void social().obterTurma().then(atualizarRotuloTurma).catch(() => {});
