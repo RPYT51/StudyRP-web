@@ -554,9 +554,7 @@
   }
 
   $("btnTurma").onclick = abrirTurma;
-  $("btnResolver").onclick = () => {
-    painelSocial("Resolver").append(socialTexto("Em breve, você poderá resolver exercícios com ajuda de IA."));
-  };
+  $("btnResolver").onclick = () => toast("Em breve");
   const atualizarTurmaInicial = () => {
     if (contas()[SESSAO]?.provider === "google" && window.StudyRPSocial) {
       void social().obterTurma().then(atualizarRotuloTurma).catch(() => {});

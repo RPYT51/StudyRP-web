@@ -623,7 +623,6 @@ header .top { position: relative; }
   background: #a2ec9a; border-color: #c4ffc0; color: #142a1c;
   font-size: clamp(1.3rem, 2.8vw, 2rem); box-shadow: 0 0 24px #a2ec9a38;
 }
-.resolver-status { display: block; margin-top: 4px; font-size: .75rem; }
 .c-turma { --c: #2fb86a; }
 .app .grid .c-turma { align-items: center; justify-content: center; text-align: center; }
 #pess:not(.hidden) { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
