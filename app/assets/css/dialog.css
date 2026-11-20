@@ -1,0 +1,39 @@
+#avisoResolver {
+  margin: auto;
+  width: min(20rem, calc(100% - 2.5rem));
+  padding: 1.75rem;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 1.5rem;
+  text-align: center;
+  box-shadow: 0 16px 64px #0005;
+}
+#avisoResolver:not([open]) { display: none; }
+#avisoResolver::backdrop { background: rgb(12 15 20 / 68%); }
+#avisoResolver svg {
+  display: block;
+  width: 2rem;
+  height: 2rem;
+  color: var(--blue);
+  margin: 0 auto .85rem;
+}
+#avisoResolver h2 { font-size: 1.4rem; margin-bottom: 1.4rem; }
+#avisoResolver button { width: 100%; }
+
+#sheetDev [hidden], #devTurmasTela [hidden] { display: none; }
+#devCampo label { display: block; margin: 1rem 0 .4rem; }
+#devTurmasCorpo, #listaTurmasDev { display: grid; gap: .85rem; }
+#devTurmasCorpo .box { min-width: 0; }
+#devTurmasCorpo :is(h3, p, label) { overflow-wrap: anywhere; }
+#devTurmasCorpo textarea { min-height: 3.25rem; }
+#devTurmasCorpo .social-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+#resultadoTurmaDev:empty, #devErro:empty { display: none; }
+.authgroup { display: grid; gap: 1rem; }
+.auth [hidden] { display: none; }
+.auth .authgroup :is(h2, p, label, b, span) { overflow-wrap: anywhere; }
+#estadoPerfilGoogle:empty, #conexaoLocalMsg:empty { display: none; }
+#googleProfileForm .field { min-width: 0; }
+.profile-preview { display: grid; gap: .3rem; padding-block: .25rem; }
+.profile-preview span { color: var(--muted); }
+.mtxt > .ms, .mtxt > .mn { display: block; }

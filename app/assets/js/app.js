@@ -15,9 +15,10 @@
   function gravar(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
   function contas() { try { return JSON.parse(ler(CHAVE_CONTAS) || "{}"); } catch (e) { return {}; } }
   const SESSAO = (function () { const u = ler(CHAVE_SESSAO); return u && contas()[u] ? u : ""; })();
+  const SESSAO_GOOGLE = Boolean(SESSAO && contas()[SESSAO]?.provider === "google");
   const CHAVE_PERFIL = "studyrp-perfil" + (SESSAO ? "-" + SESSAO : "");
 
-  let dados = { nome: "RPYT", status: "", bio: "", desde: "", foto: "", presenca: "online", statusAte: 0, duracao: "24h", devAte: 0, cargos: null, usuario: "", zoom: 100, textoMenor: false };
+  let dados = { nome: "RPYT", status: "", bio: "", desde: "", foto: "", presenca: "online", statusAte: 0, duracao: "24h", cargos: null, usuario: "", zoom: 100, textoMenor: false };
   let pendente = "";
   try { Object.assign(dados, JSON.parse(ler(CHAVE_PERFIL) || "{}")); } catch (e) {}
   if (!dados.nome) dados.nome = "RPYT";
@@ -55,9 +56,10 @@
     return d.label + " (" + (d.id === "24h" ? "amanhã às " : "") + hhmm(f) + ")";
   }
   function verificarExpira() {
-    if (dados.devAte && Date.now() >= dados.devAte) {
-      dados.devAte = 0; gravar(CHAVE_PERFIL, JSON.stringify(dados)); pintar();
-      if (telaAtual === "cargos") tela("app");
+    if (ateDev && Date.now() >= ateDev) {
+      definirEstadoDev({ ativo: false });
+      if (telaAtual === "cargos" || telaAtual === "turmasDev") { tela("perfil"); abrirDev(); }
+      if (!$("sheetDev").classList.contains("hidden")) renderDev();
       if (typeof renderConfig === "function" && telaAtual === "config") renderConfig();
     }
     if (dados.statusAte && Date.now() >= dados.statusAte) {
@@ -108,6 +110,7 @@
     $("stscreen").classList.toggle("hidden", qual !== "status");
     $("cfg").classList.toggle("hidden", qual !== "config");
     $("pess").classList.toggle("hidden", qual !== "pessoas");
+    $("devTurmasTela").classList.toggle("hidden", qual !== "turmasDev");
     $("crg").classList.toggle("hidden", qual !== "cargos");
     $("sub").classList.toggle("hidden", qual !== "sub");
     $("qr").classList.toggle("hidden", qual !== "qr");
@@ -123,7 +126,17 @@
     $("ptitulo").textContent = editando ? "Editar perfil" : "Perfil";
     window.scrollTo(0, 0);
   }
-  function abrirApp(n) { app.dataset.estilo = n; tela("app"); }
+  function nomeEstilo() { return app.dataset.estilo === "3" ? "Caderno" : "Estilo " + app.dataset.estilo; }
+  function abrirApp(n) {
+    app.dataset.estilo = n;
+    tela("app");
+    if (!SESSAO_GOOGLE) return;
+    const retorno = sessionStorage.getItem("studyrp-retorno");
+    sessionStorage.removeItem("studyrp-retorno");
+    if (retorno === "amigos") abrirAmigos();
+    else if (retorno === "turma") abrirTurma();
+    else if (retorno === "dev") { tela("perfil"); void abrirDev(); }
+  }
 
   document.querySelectorAll(".opt").forEach(function (b) {
     b.addEventListener("click", function () { gravar(CHAVE, b.dataset.estilo); abrirApp(b.dataset.estilo); });
@@ -143,7 +156,7 @@
   });
 
   function abrirSheet(id) { $("sheetBg").classList.remove("hidden"); $(id).classList.remove("hidden"); sheetAbertoEm = Date.now(); }
-  function fecharSheets() { ["sheetPres", "sheetDur", "sheetInfo", "sheetDev", "sheetCargo", "sheetLista", "sheetEdit"].forEach(i => $(i).classList.add("hidden")); $("sheetBg").classList.add("hidden"); }
+  function fecharSheets() { ["sheetPres", "sheetDur", "sheetInfo", "sheetDev", "sheetLista", "sheetEdit"].forEach(i => $(i).classList.add("hidden")); $("sheetBg").classList.add("hidden"); }
   $("sheetBg").addEventListener("click", () => { if (Date.now() - sheetAbertoEm < 450) return; fecharSheets(); });
 
   function abrirSheetPres() {
@@ -194,8 +207,13 @@
   const VERSAO = window.STUDYRP_VERSION || "0.1";
   const logs = [];
   function log(msg) { logs.unshift(hhmm(new Date()) + "  " + msg); if (logs.length > 60) logs.pop(); }
-  // Cargos e DEV ainda não têm autorização confiável no servidor. Nunca confiar em localStorage.
-  function devAtivo() { return false; }
+  let ateDev = 0;
+  function devAtivo() { return ateDev > Date.now(); }
+  function definirEstadoDev(estado) {
+    ateDev = estado?.ativo && Number.isFinite(estado.ate) ? estado.ate : 0;
+    pintar();
+    if (telaAtual === "config") renderConfig();
+  }
   const CARGOS = [
     { id: "Dono", emoji: "👑", cor: "var(--gold)", desc: "Administração geral" },
     { id: "Presidente", emoji: "⭐", cor: "#b98cff", desc: "Responsável pela própria sala" },
@@ -262,20 +280,20 @@
       "Acessibilidade": () => abrirAparencia(true), "Idioma": abrirIdioma,
       "Notificações": abrirNotificacoes, "Novidades": abrirNovidades,
       "Informações do dispositivo": abrirDispositivo, "Informações do cliente": abrirCliente, "Registros": abrirRegistros, "Ações de cache": abrirCache,
-      "Cargos": () => abrirCargos(), "Versão do App": () => toast("StudyRP " + VERSAO), "Sair": sair
+      "Turmas": abrirTurmasDev, "Cargos": () => abrirCargos(), "Versão do App": () => toast("StudyRP " + VERSAO), "Sair": sair
     };
     const s = [
       { t: "Configurações de conta", itens: [
         { i: "conta", l: "Conta" }, { i: "disp", l: "Dispositivos" }, { i: "apps", l: "Apps conectados" }, { i: "qr", l: "Escanear o código QR" } ] },
       { t: "Config. do aplicativo", itens: [
-        { i: "aparencia", l: "Aparência", v: "Estilo " + app.dataset.estilo },
+        { i: "aparencia", l: "Aparência", v: nomeEstilo() },
         { i: "acess", l: "Acessibilidade" }, { i: "idioma", l: "Idioma", v: "Português, Brasil" },
         { i: "sino", l: "Notificações" } ] },
       { t: "Novidades", itens: [ { i: "info", l: "Novidades" } ] },
       { t: "", itens: [ { i: "sair", l: "Sair", red: true } ] }
     ];
     if (devAtivo()) s.push({ t: "Configurações do desenvolvedor", itens: [
-      { i: "cargos", l: "Cargos" },
+      { i: "clip", l: "Turmas" }, { i: "cargos", l: "Cargos" },
       { i: "ver", l: "Versão do App", v: "StudyRP " + VERSAO, semSeta: true },
       { i: "phone", l: "Informações do dispositivo", v: (navigator.platform || "-") + " " + window.innerWidth + "x" + window.innerHeight, semSeta: true },
       { i: "clip", l: "Informações do cliente" }, { i: "log", l: "Registros" }, { i: "cache", l: "Ações de cache" } ] });
@@ -312,40 +330,192 @@
   $("cfgFechar").addEventListener("click", () => tela(origemCfg || "perfil"));
   $("optConfig").addEventListener("click", abrirConfig);
 
-  // DEV por KEY
-  function abrirDev() {
-    $("devErro").textContent = ""; $("inKey").value = "";
-    if (devAtivo()) {
-      const falta = dados.devAte - Date.now(), h = Math.floor(falta / 36e5), m = Math.floor(falta % 36e5 / 6e4);
-      $("devMsg").textContent = "DEV ativo até " + hhmm(new Date(dados.devAte)) + " (restam " + h + " h " + m + " min).";
-      $("devCampo").style.display = "none"; $("devCargos").style.display = ""; $("devOk").textContent = "Desativar DEV"; $("devOk").classList.add("danger");
-    } else {
-      $("devMsg").textContent = "Digite a KEY para ativar o cargo DEV por 6 horas.";
-      $("devCampo").style.display = "block"; $("devCargos").style.display = "none"; $("devOk").textContent = "Ativar"; $("devOk").classList.remove("danger");
+  let origemTurmasDev = "perfil";
+  let operacaoDev = false;
+  let modoDev = "carregando";
+  let consultaDev = 0;
+  let codigoTurmaDev = "";
+
+  function erroDev(erro, acao) {
+    if (erro.code === "unavailable" || !navigator.onLine) return "Sem conexão com o servidor. Tente novamente quando estiver online.";
+    if (erro.code === "permission-denied") {
+      if (acao === "ativar") return "O servidor recusou a chave. Confira se ela foi emitida para esta conta e se ainda é válida.";
+      return "O servidor não autorizou " + acao + ". Confira o acesso DEV desta conta.";
     }
+    return erro.message || "Não foi possível concluir. Tente novamente.";
+  }
+
+  function renderDev(modo = devAtivo() ? "ativo" : "inativo", erro = "") {
+    modoDev = modo;
+    const ativo = modo === "ativo";
+    const mensagens = {
+      carregando: "Consultando o acesso desta conta…",
+      ativo: "Acesso DEV ativo até " + hhmm(new Date(ateDev)) + ".",
+      inativo: "Use a chave emitida para sua conta. O acesso dura seis horas.",
+      local: "Entre com o Google para usar uma chave de desenvolvedor.",
+      perfil: "Complete seu perfil compartilhado para ativar uma chave.",
+      erro: "Não foi possível consultar seu acesso."
+    };
+    const acoes = { carregando: "Aguarde…", ativo: "Desativar DEV", inativo: "Ativar", local: "Continuar com o Google", perfil: "Completar perfil", erro: "Tentar novamente" };
+    $("devMsg").textContent = mensagens[modo];
+    $("devCampo").hidden = modo !== "inativo";
+    $("inKey").disabled = modo !== "inativo";
+    $("devTurmas").hidden = $("devCargos").hidden = !ativo;
+    $("devOk").textContent = acoes[modo];
+    $("devOk").disabled = modo === "carregando" || operacaoDev;
+    $("devOk").classList.toggle("danger", ativo);
+    $("devErro").textContent = erro;
+  }
+
+  async function abrirDev() {
+    $("inKey").value = "";
     abrirSheet("sheetDev");
+    const consulta = ++consultaDev;
+    if (!SESSAO_GOOGLE) { renderDev("local"); return; }
+    if (!dados.uidCloud) { renderDev("perfil"); return; }
+    renderDev("carregando");
+    try {
+      if (!window.StudyRPDev) throw new Error("O serviço de conta ainda não carregou. Verifique a conexão e tente novamente.");
+      const estado = await window.StudyRPDev.obterEstado();
+      if (consulta !== consultaDev) return;
+      definirEstadoDev(estado);
+      renderDev();
+    } catch (erro) {
+      if (consulta !== consultaDev) return;
+      definirEstadoDev(null);
+      renderDev("erro", erroDev(erro, "consultar o acesso"));
+    }
   }
-  function confirmarDev() {
-    log("Tentativa de ativação DEV bloqueada: falta autorização no servidor");
-    $("devErro").textContent = "Ativação DEV temporariamente indisponível. A autorização precisa ser validada no servidor.";
+
+  $("devForm").onsubmit = async event => {
+    event.preventDefault();
+    if (operacaoDev || modoDev === "carregando") return;
+    if (modoDev === "erro") { void abrirDev(); return; }
+    if (modoDev === "local" || modoDev === "perfil") {
+      fecharSheets();
+      conectarContaSocial();
+      return;
+    }
+    const ativar = modoDev === "inativo";
+    const chave = $("inKey").value.trim();
+    if (ativar && !chave) { $("devErro").textContent = "Digite a chave de ativação."; return; }
+    ++consultaDev;
+    operacaoDev = true;
+    $("devOk").disabled = true;
+    $("devErro").textContent = "";
+    try {
+      const estado = ativar ? await window.StudyRPDev.ativar(chave) : await window.StudyRPDev.desativar();
+      definirEstadoDev(estado);
+      $("inKey").value = "";
+      renderDev();
+    } catch (erro) {
+      renderDev(undefined, erroDev(erro, ativar ? "ativar" : "desativar o acesso"));
+    } finally {
+      operacaoDev = false;
+      $("devOk").disabled = false;
+    }
+  };
+
+  $("optDev").onclick = abrirDev;
+  $("devFechar").onclick = fecharSheets;
+  $("devTurmas").onclick = abrirTurmasDev;
+  $("voltarTurmasDev").onclick = () => {
+    tela(origemTurmasDev);
+    if (origemTurmasDev === "perfil") void abrirDev();
+  };
+
+  async function listarTurmasDev() {
+    const lista = $("listaTurmasDev");
+    const aviso = socialTexto("Buscando turmas…");
+    lista.replaceChildren(aviso);
+    try {
+      const turmas = await window.StudyRPDev.listarTurmas();
+      if (!aviso.isConnected) return;
+      if (!turmas.length) { aviso.textContent = "Você ainda não criou uma turma."; return; }
+      lista.replaceChildren();
+      for (const turma of turmas) {
+        const item = document.createElement("article");
+        item.className = "box";
+        const titulo = document.createElement("h3");
+        titulo.textContent = turma.name;
+        item.append(titulo);
+        if (turma.description) item.append(socialTexto(turma.description));
+        const status = socialTexto("");
+        status.setAttribute("role", "status");
+        const copiarCodigo = botaoSocial("Copiar convite", () => copiar(status.textContent));
+        copiarCodigo.hidden = true;
+        const gerar = botaoSocial("Gerar convite", async () => {
+          gerar.disabled = true;
+          copiarCodigo.hidden = true;
+          try {
+            status.textContent = await window.StudyRPDev.criarConvite(turma.id);
+            copiarCodigo.hidden = false;
+          } catch (erro) { status.textContent = erroDev(erro, "gerar o convite"); }
+          finally { gerar.disabled = false; }
+        });
+        item.append(gerar, status, copiarCodigo);
+        lista.append(item);
+      }
+    } catch (erro) {
+      if (!aviso.isConnected) return;
+      aviso.textContent = erroDev(erro, "listar as turmas");
+      lista.append(botaoSocial("Tentar novamente", listarTurmasDev));
+    }
   }
-  $("optDev").addEventListener("click", abrirDev);
-  $("devOk").addEventListener("click", confirmarDev);
-  $("inKey").addEventListener("keydown", (e) => { if (e.key === "Enter") confirmarDev(); });
+
+  function abrirTurmasDev() {
+    if (!devAtivo()) { void abrirDev(); return; }
+    origemTurmasDev = telaAtual === "config" ? "config" : "perfil";
+    fecharSheets();
+    tela("turmasDev");
+    void listarTurmasDev();
+  }
+
+  $("copiarConviteDev").onclick = () => copiar(codigoTurmaDev);
+  $("formTurmaDev").onsubmit = async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const botao = form.querySelector("button[type=submit]");
+    const nome = $("nomeTurmaDev").value.trim();
+    if (botao.disabled) return;
+    const status = $("resultadoTurmaDev");
+    if (!nome) { status.textContent = "Digite o nome da turma."; $("nomeTurmaDev").focus(); return; }
+    botao.disabled = true;
+    $("copiarConviteDev").hidden = true;
+    status.textContent = "Criando turma…";
+    try {
+      const turma = await window.StudyRPDev.criarTurma(nome, $("descricaoTurmaDev").value.trim());
+      form.reset();
+      if (turma.entrou) atualizarRotuloTurma(turma);
+      codigoTurmaDev = turma.convite;
+      status.textContent = "Turma criada: " + turma.name + (turma.convite ? ". Convite: " + turma.convite : ".");
+      $("copiarConviteDev").hidden = !turma.convite;
+      void listarTurmasDev();
+    } catch (erro) { status.textContent = erroDev(erro, "criar a turma"); }
+    finally { botao.disabled = false; }
+  };
+
+  window.addEventListener("studyrp:google-user", async event => {
+    if ("google_" + event.detail.uid !== SESSAO || !window.StudyRPDev) return;
+    const consulta = ++consultaDev;
+    try {
+      const estado = await window.StudyRPDev.obterEstado();
+      if (consulta === consultaDev) definirEstadoDev(estado);
+    } catch { /* A consulta pode ser repetida ao abrir o painel. */ }
+  });
 
   const esc = (t) => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   function social() {
-    if (contas()[SESSAO]?.provider !== "google" || !window.StudyRPSocial) {
-      throw new Error("Entre com uma conta Google cadastrada na nuvem para usar este recurso.");
-    }
+    if (!SESSAO_GOOGLE) throw Object.assign(new Error("Conecte sua conta Google para encontrar amigos e participar de turmas."), { code: "conta/sessao" });
+    if (!window.StudyRPSocial) throw new Error("O serviço ainda não carregou. Verifique sua conexão.");
     return window.StudyRPSocial;
   }
 
   function painelSocial(titulo, voltar = () => tela("app")) {
     $("painelSocialTitulo").textContent = titulo;
     $("pessFechar").onclick = voltar;
-    $("adicionarAmigo").classList.toggle("hidden", titulo !== "Amigos");
+    $("adicionarAmigo").classList.add("hidden");
     $("pessCorpo").replaceChildren();
     tela("pessoas");
     return $("pessCorpo");
@@ -367,7 +537,7 @@
     return botao;
   }
 
-  function formularioSocial(label, acao, max, enviar) {
+  function formularioSocial(label, acao, max, enviar, opcoes = {}) {
     const form = document.createElement("form");
     form.className = "box";
     const rotulo = document.createElement("label");
@@ -376,6 +546,8 @@
     input.maxLength = max;
     input.autocomplete = "off";
     input.autocapitalize = "off";
+    input.spellcheck = false;
+    input.placeholder = opcoes.placeholder || "";
     rotulo.append(label, input);
     const botao = document.createElement("button");
     botao.className = "primary";
@@ -391,7 +563,7 @@
       try {
         await enviar(input.value.trim(), form);
       } catch (error) {
-        aviso.textContent = mensagemSocial(error);
+        aviso.textContent = mensagemSocial(error, opcoes.erro);
       } finally {
         botao.disabled = false;
       }
@@ -399,32 +571,45 @@
     return form;
   }
 
-  function mensagemSocial(error) {
-    if (error.code === "permission-denied") return "Acesso indisponível. Confira se a conta em nuvem e as regras da turma estão ativas.";
-    return error.message || "Não foi possível concluir. Tente novamente.";
+  function mensagemSocial(error, recusa = "O servidor não autorizou esta ação para sua conta.") {
+    if (!navigator.onLine || error.code === "unavailable" || error.code === "deadline-exceeded") return "Sem conexão com o servidor. Tente novamente quando estiver online.";
+    if (error.code === "permission-denied") return recusa;
+    if (error.code === "unauthenticated") return "Entre novamente com o Google para continuar.";
+    return error.code && !error.code.startsWith("conta/") ? "Não foi possível concluir. Tente novamente." : error.message || "Tente novamente.";
   }
 
-  async function carregarSocial(corpo, tarefa, render, falha) {
+  async function carregarSocial(corpo, tarefa, render, recusa, destino = "turma") {
     const aviso = socialTexto("Carregando…");
+    aviso.setAttribute("role", "status");
     corpo.append(aviso);
     try {
-      const dados = await tarefa();
-      if (aviso.isConnected) {
-        aviso.remove();
-        render(dados);
+      const resultado = await tarefa();
+      if (!aviso.isConnected) return;
+      aviso.remove();
+      render(resultado);
+    } catch (erro) {
+      if (!aviso.isConnected) return;
+      aviso.textContent = mensagemSocial(erro, recusa);
+      if (["conta/sessao", "conta/perfil", "unauthenticated"].includes(erro.code)) {
+        corpo.append(botaoSocial(erro.code === "conta/perfil" ? "Completar perfil" : "Continuar com o Google", () => conectarContaSocial(destino)));
+      } else {
+        const repetir = botaoSocial("Tentar novamente", () => {
+          repetir.remove();
+          aviso.remove();
+          void carregarSocial(corpo, tarefa, render, recusa, destino);
+        });
+        corpo.append(repetir);
       }
-    } catch (error) {
-      aviso.textContent = mensagemSocial(error);
-      if (aviso.isConnected) falha?.();
     }
   }
 
   function abrirAmigos() {
     const corpo = painelSocial("Amigos");
     void carregarSocial(corpo, () => social().listarAmigos(), (amigos) => {
+      $("adicionarAmigo").classList.remove("hidden");
       if (!amigos.length) corpo.append(socialTexto("Nenhum amigo adicionado."));
       for (const amigo of amigos) corpo.append(socialTexto("@" + amigo.username));
-    });
+    }, "Não foi possível acessar a lista de amigos desta conta.", "amigos");
   }
 
   $("btnPessoas").onclick = abrirAmigos;
@@ -436,7 +621,7 @@
       if (!/^[a-z0-9._]{2,20}$/.test(nome)) throw new Error("Digite um nome de usuário válido.");
       await social().adicionarAmigo(nome);
       if (form.isConnected) abrirAmigos();
-    }));
+    }, { placeholder: "@usuario", erro: "O servidor não autorizou adicionar esse amigo." }));
   };
 
   function atualizarRotuloTurma(turma) {
@@ -452,34 +637,37 @@
         if (!/^[a-f0-9]{32}$/.test(code)) throw new Error("Código de convite inválido.");
         await social().entrarTurma(code);
         if (form.isConnected) abrirTurma();
-      }));
+      }, { placeholder: "Cole o convite da turma", erro: "O convite não permite entrar nesta turma. Peça um convite novo." }));
     };
     void carregarSocial(corpo, () => social().obterTurma(), (turma) => {
       atualizarRotuloTurma(turma);
       if (!turma) { mostrarEntrada(); return; }
       corpo.append(socialTexto(turma.name), botaoSocial("Atividades", abrirAtividades),
         botaoSocial("Bate-papo", abrirChats), botaoSocial("Informações", () => abrirInformacoesTurma(turma)));
-    }, mostrarEntrada);
+    }, "Não foi possível consultar a turma desta conta.");
   }
 
   function abrirInformacoesTurma(turma) {
     const corpo = painelSocial("Informações da turma", abrirTurma);
     corpo.append(socialTexto(turma.name), socialTexto(turma.description || "Sem descrição."));
-    if (turma.podeConvidar) {
+    void carregarSocial(corpo, () => social().podeConvidar(), permitido => {
+      if (!permitido) return;
       const codigo = socialTexto("");
       codigo.setAttribute("role", "status");
+      const copiarCodigo = botaoSocial("Copiar convite", () => copiar(codigo.textContent));
+      copiarCodigo.classList.add("hidden");
       const botao = botaoSocial("Gerar convite", async () => {
         botao.disabled = true;
+        copiarCodigo.classList.add("hidden");
         try {
           codigo.textContent = await social().criarConvite();
+          copiarCodigo.classList.remove("hidden");
         } catch (error) {
-          codigo.textContent = mensagemSocial(error);
-        } finally {
-          botao.disabled = false;
-        }
+          codigo.textContent = mensagemSocial(error, "Sua conta não tem permissão para gerar convites nesta turma.");
+        } finally { botao.disabled = false; }
       });
-      corpo.append(botao, codigo);
-    }
+      corpo.append(botao, codigo, copiarCodigo);
+    }, "Não foi possível verificar quem pode gerar convites.");
   }
 
   function abrirAtividades() {
@@ -489,7 +677,7 @@
       for (const atividade of atividades) {
         corpo.append(botaoSocial(atividade.title, () => abrirRascunhoAtividade(atividade)));
       }
-    });
+    }, "Não foi possível ler as atividades desta turma.");
   }
 
   function abrirChats() {
@@ -499,12 +687,12 @@
       painel.append(formularioSocial("Nome do chat", "Criar", 60, async (nome, form) => {
         await social().criarChat(nome);
         if (form.isConnected) abrirChats();
-      }));
+      }, { erro: "Sua conta não tem permissão para criar um chat nesta turma." }));
     }));
     void carregarSocial(corpo, () => social().listarChats(), (chats) => {
       if (!chats.length) corpo.append(socialTexto("Nenhum chat criado."));
       for (const chat of chats) corpo.append(botaoSocial(chat.title, () => abrirChat(chat)));
-    });
+    }, "Não foi possível ler os chats desta turma.");
   }
 
   function abrirChat(chat) {
@@ -515,11 +703,11 @@
     corpo.append(formularioSocial("Mensagem", "Enviar", 1000, async (mensagem, form) => {
       await social().enviarMensagem(chat.id, mensagem);
       if (form.isConnected) abrirChat(chat);
-    }));
+    }, { erro: "A mensagem não foi enviada. Aguarde alguns segundos e tente novamente." }));
     void carregarSocial(feed, () => social().listarMensagens(chat.id), (mensagens) => {
       if (!mensagens.length) feed.append(socialTexto("Nenhuma mensagem."));
       for (const mensagem of mensagens) feed.append(socialTexto("@" + mensagem.username + " — " + mensagem.text));
-    });
+    }, "Não foi possível ler as mensagens deste chat.");
   }
 
   function abrirRascunhoAtividade(atividade) {
@@ -554,7 +742,20 @@
   }
 
   $("btnTurma").onclick = abrirTurma;
-  $("btnResolver").onclick = () => toast("Em breve");
+  const avisoResolver = $("avisoResolver");
+  $("btnResolver").onclick = () => {
+    if (typeof avisoResolver.showModal !== "function") {
+      abrirInfo("Em breve", "", [{ txt: "Entendi", fn: () => $("btnResolver").focus() }]);
+      return;
+    }
+    if (!avisoResolver.open) avisoResolver.showModal();
+  };
+  avisoResolver.addEventListener("close", () => $("btnResolver").focus());
+  avisoResolver.addEventListener("click", event => {
+    if (event.target !== avisoResolver) return;
+    const area = avisoResolver.getBoundingClientRect();
+    if (event.clientX < area.left || event.clientX > area.right || event.clientY < area.top || event.clientY > area.bottom) avisoResolver.close();
+  });
   const atualizarTurmaInicial = () => {
     if (contas()[SESSAO]?.provider === "google" && window.StudyRPSocial) {
       void social().obterTurma().then(atualizarRotuloTurma).catch(() => {});
@@ -602,9 +803,9 @@
       { l: "Navegador", v: navigator.userAgent },
       { l: "Idioma", v: navigator.language || "-" },
       { l: "Tela", v: window.innerWidth + "x" + window.innerHeight + " @" + (window.devicePixelRatio || 1) + "x" },
-      { l: "Estilo da tela inicial", v: "Estilo " + app.dataset.estilo },
+      { l: "Estilo da tela inicial", v: nomeEstilo() },
       { l: "Cargos", v: cargosDe().join(", ") },
-      { l: "DEV", v: devAtivo() ? "ativo até " + hhmm(new Date(dados.devAte)) : "inativo" }
+      { l: "DEV", v: devAtivo() ? "ativo até " + hhmm(new Date(ateDev)) : "inativo" }
     ];
   }
   function itensDispositivo() {
@@ -651,11 +852,19 @@
     $("editT").textContent = titulo; $("editIn").value = valor; $("editIn").maxLength = max; $("editErro").textContent = ""; editAplicar = aplicar;
     abrirSheet("sheetEdit"); setTimeout(() => $("editIn").focus(), 60);
   }
-  function confirmarEdit() {
-    const erro = editAplicar && editAplicar($("editIn").value.trim());
-    if (erro) { $("editErro").textContent = erro; return; }
-    gravar(CHAVE_PERFIL, JSON.stringify(dados)); pintar(); fecharSheets();
-    if (telaAtual === "sub") abrirConta(true);
+  async function confirmarEdit() {
+    const botao = $("editOk");
+    if (!editAplicar || botao.disabled) return;
+    botao.disabled = true;
+    $("editErro").textContent = "";
+    try {
+      const erro = await editAplicar($("editIn").value.trim());
+      if (erro) { $("editErro").textContent = erro; return; }
+      gravar(CHAVE_PERFIL, JSON.stringify(dados)); pintar(); fecharSheets();
+      if (telaAtual === "sub") abrirConta(true);
+    } catch (erro) {
+      $("editErro").textContent = erro.code === "permission-denied" ? "A alteração foi recusada. Aguarde alguns segundos e tente novamente." : mensagemPerfil(erro);
+    } finally { botao.disabled = false; }
   }
   $("editOk").addEventListener("click", confirmarEdit);
   $("editIn").addEventListener("keydown", (e) => { if (e.key === "Enter") confirmarEdit(); });
@@ -678,7 +887,7 @@
     if (!SESSAO || !conta || excluindoConta) return;
     const google = conta.provider === "google";
     const mensagem = google
-      ? "Sua conta StudyRP e os dados deste perfil no aparelho serão apagados. Você vai confirmar sua identidade pelo Google."
+      ? "Seu perfil, nome de usuário e lista de amigos serão apagados. Mensagens enviadas continuam na turma. Confirme sua identidade pelo Google para excluir a conta."
       : "Sua conta StudyRP e os dados deste perfil serão apagados deste aparelho.";
     abrirInfo("Excluir conta?", mensagem + " Essa ação não pode ser desfeita.", [
       { txt: "Cancelar" },
@@ -691,7 +900,7 @@
           try {
             if (ler(CHAVE_SESSAO) !== SESSAO) throw new Error("Entre novamente para excluir a sua conta.");
             if (google) {
-              if (!window.StudyRPGoogle || window.StudyRPCloud) {
+              if (!window.StudyRPGoogle) {
                 throw new Error("A exclusão desta conta Google está indisponível nesta versão.");
               }
               await window.StudyRPGoogle.excluirConta(conta.uid);
@@ -722,6 +931,17 @@
     ]);
   }
 
+  async function alterarPerfilConta(campos) {
+    if (SESSAO_GOOGLE) {
+      if (!window.StudyRPCloud || !usuarioGoogle || usuarioGoogle.uid !== contas()[SESSAO]?.uid) throw new Error("Entre novamente com o Google para alterar seu perfil.");
+      const novo = { ...dados, ...campos };
+      await window.StudyRPCloud.saveProfile(usuarioGoogle.uid, {
+        usuario: novo.usuario, nomeExibido: novo.nome, telefone: novo.telefone || "", foto: dados.fotoCloud || usuarioGoogle.photoURL || ""
+      });
+    }
+    Object.assign(dados, campos);
+  }
+
   function abrirConta(semTrocarTela) {
     $("subCorpo").innerHTML =
       '<div class="glabel">Informações de conta</div><div class="grp plain">' +
@@ -733,10 +953,10 @@
     ligarLinhas({
       user: () => editarCampo("Nome de usuário", usuarioAtual(), 20, (v) => {
         v = v.toLowerCase(); if (!/^[a-z0-9._]{2,20}$/.test(v)) return "Use 2 a 20 letras minúsculas, números, ponto ou _.";
-        dados.usuario = v; return null;
+        return alterarPerfilConta({ usuario: v });
       }),
-      nome: () => editarCampo("Nome exibido", dados.nome, 24, (v) => { if (!v) return "O nome não pode ficar vazio."; dados.nome = v; return null; }),
-      telefone: () => editarCampo("Telefone (opcional)", dados.telefone || "", 20, (v) => { dados.telefone = v; }, "tel"),
+      nome: () => editarCampo("Nome exibido", dados.nome, 24, (v) => { if (!v) return "O nome não pode ficar vazio."; return alterarPerfilConta({ nome: v }); }),
+      telefone: () => editarCampo("Telefone (opcional)", dados.telefone || "", 20, v => alterarPerfilConta({ telefone: v }), "tel"),
       senha: abrirAlteracaoSenha, excluir: confirmarExclusaoConta
     });
     if (!semTrocarTela) abrirSub("Conta"); else $("subT").textContent = "Conta";
@@ -842,7 +1062,7 @@
   function abrirAparencia(apenasAcessibilidade = false) {
     apenasAcessibilidade = apenasAcessibilidade === true;
     $("subCorpo").innerHTML =
-      (apenasAcessibilidade ? "" : '<div class="glabel">Tema</div><div class="grp plain">' + linhaSimples("estilo", "Estilo da tela inicial", "Estilo " + app.dataset.estilo) + '</div>') +
+      (apenasAcessibilidade ? "" : '<div class="glabel">Tema</div><div class="grp plain">' + linhaSimples("estilo", "Estilo da tela inicial", nomeEstilo()) + '</div>') +
       '<div class="glabel">Nível de zoom</div><div class="zoomcard">' +
         '<div class="zrow"><b>Nível de zoom</b><span id="zVal"></span></div>' +
         '<div class="zctl"><button class="zbtn" id="zMenos" aria-label="Diminuir">' + svg("minus") + '</button>' +
@@ -886,58 +1106,14 @@
 
   // ===== CARGOS (só com DEV ativo) =====
   let origemCargos = "config";
-  function membrosLista() { return [{ id: "eu", nome: dados.nome, foto: dados.foto, cargos: cargosDe() }]; }
   function abrirCargos() {
-    if (!devAtivo()) { toast("Ative o DEV para gerenciar cargos"); return; }
-    origemCargos = telaAtual === "cargos" ? origemCargos : telaAtual;
-    $("crgInput").value = ""; renderCargos(); tela("cargos");
+    if (!devAtivo()) { void abrirDev(); return; }
+    origemCargos = telaAtual;
+    $("crgInfo").innerHTML = '<div class="mgrp">' + CARGOS.map(c =>
+      '<div class="mem info"><span class="emo">' + (c.emoji || "👤") + '</span><span class="mtxt"><span class="mn">' +
+      c.id + '</span><span class="ms">' + c.desc + '</span></span></div>').join("") + '</div>';
+    tela("cargos");
   }
-  function renderCargos() {
-    $("crgInfo").innerHTML = '<div class="mlabel">Cargos</div><div class="mgrp">' + CARGOS.map(c =>
-      '<div class="mem info"><span class="emo">' + (c.emoji || "👤") + '</span><span class="mtxt"><div class="mn" style="color:' + c.cor + '">' + c.id +
-      '</div><div class="ms">' + c.desc + '</div></span></div>').join("") + '</div>';
-    const q = $("crgInput").value.trim().toLowerCase();
-    const lista = membrosLista().filter(m => !q || m.nome.toLowerCase().includes(q) || m.cargos.some(c => c.toLowerCase().includes(q)));
-    $("crgPessoas").innerHTML = lista.length ? '<div class="mgrp">' + lista.map(m => {
-      const av = m.foto ? '<img src="' + esc(m.foto) + '" alt="">' : esc(m.nome.charAt(0).toUpperCase());
-      return '<button class="mem" data-id="' + m.id + '"><span class="mav">' + av + '</span><span class="mtxt"><div class="mn">' + esc(m.nome) +
-        '</div></span><span class="mcar">' + m.cargos.join(", ") + '</span></button>';
-    }).join("") + '</div>' : '<p class="mvazio">Nenhum membro encontrado.</p>';
-    $("crgPessoas").querySelectorAll("button.mem").forEach(b => b.addEventListener("click", () => escolherCargo(b.dataset.id)));
-  }
-  let editandoId = null;
-  function escolherCargo(id) {
-    const m = membrosLista().find(x => x.id === id); if (!m) return;
-    editandoId = id; $("cargoT").textContent = "Dar cargos a " + m.nome;
-    desenharListaCargo(); abrirSheet("sheetCargo");
-  }
-  function rawCargos() { return Array.isArray(dados.cargos) ? dados.cargos.slice() : (dados.cargo ? [dados.cargo] : []); }
-  function desenharListaCargo() {
-    const raw = rawCargos(), outros = raw.filter(x => x !== "Membro");
-    $("listaCargo").innerHTML = CARGOS.map(c => {
-      const on = c.id === "Membro" ? (raw.includes("Membro") || outros.length === 0) : raw.includes(c.id);
-      return '<button data-c="' + c.id + '"><span class="pi" style="font-size:1.3rem">' + (c.emoji || "👤") + '</span>' + c.id +
-        '<span class="radio sq' + (on ? " on" : "") + '"></span></button>';
-    }).join("");
-    $("listaCargo").querySelectorAll("button").forEach(b => b.addEventListener("click", () => alternarCargo(b.dataset.c)));
-  }
-  function alternarCargo(c) {
-    let raw = rawCargos();
-    const outros = raw.filter(x => x !== "Membro");
-    if (c === "Membro") {
-      if (outros.length === 0) return;
-      raw = raw.includes("Membro") ? raw.filter(x => x !== "Membro") : raw.concat("Membro");
-    } else if (raw.includes(c)) {
-      raw = raw.filter(x => x !== c);
-    } else {
-      raw = raw.filter(x => x !== "Membro").concat(c);
-    }
-    if (editandoId === "eu") { dados.cargos = raw; gravar(CHAVE_PERFIL, JSON.stringify(dados)); }
-    log("Cargos de " + dados.nome + ": " + cargosDe().join(", "));
-    pintar(); desenharListaCargo(); renderCargos();
-  }
-  $("cargoOk").addEventListener("click", () => { fecharSheets(); toast("Cargos: " + cargosDe().join(", ")); });
-  $("crgInput").addEventListener("input", renderCargos);
   $("crgFechar").addEventListener("click", () => tela(origemCargos || "config"));
   $("devCargos").addEventListener("click", () => { fecharSheets(); abrirCargos(); });
 
@@ -987,6 +1163,8 @@
       gravar(CHAVE_CONTAS, JSON.stringify(todas));
       gravar("studyrp-perfil-" + user, JSON.stringify({ nome, usuario: user, telefone, desde: new Date().toISOString() }));
     }
+    sessionStorage.removeItem("studyrp-conectando");
+    sessionStorage.removeItem("studyrp-retorno");
     gravar(CHAVE_SESSAO, user);
     location.reload();
   }
@@ -1007,32 +1185,176 @@
   $("tabCriar").addEventListener("click", () => setModoAuth("criar"));
   $("auOk").addEventListener("click", enviarAuth);
   ["auUser", "auNome", "auTelefone", "auSenha", "auSenha2"].forEach(id => $(id).addEventListener("keydown", (e) => { if (e.key === "Enter") enviarAuth(); }));
-  window.addEventListener("studyrp:google-user", (event) => {
-    const user = event.detail;
-    if (!user || !user.uid) return;
-    const userKey = "google_" + user.uid;
-    if (ler(CHAVE_SESSAO) === userKey) return;
-    const todas = contas();
-    todas[userKey] = { provider: "google", email: user.email || "", uid: user.uid };
-    gravar(CHAVE_CONTAS, JSON.stringify(todas));
-    if (!ler("studyrp-perfil-" + userKey)) {
-      gravar("studyrp-perfil-" + userKey, JSON.stringify({
-        nome: user.displayName || (user.email ? user.email.split("@")[0] : "Estudante"),
-        usuario: userKey,
-        foto: user.photoURL || "",
-        desde: new Date().toISOString()
-      }));
+  let usuarioGoogle = null;
+  let consultaGoogle = 0;
+  let carregandoPerfil = false;
+
+  function voltarDaConexao() {
+    consultaGoogle++;
+    carregandoPerfil = false;
+    sessionStorage.removeItem("studyrp-conectando");
+    sessionStorage.removeItem("studyrp-retorno");
+    $("credenciais").hidden = false;
+    $("painelGoogle").hidden = true;
+    $("cancelarConexao").hidden = true;
+    if (SESSAO && (!SESSAO_GOOGLE || usuarioGoogle?.uid === contas()[SESSAO]?.uid)) { abrirSessao(); return; }
+    if (SESSAO_GOOGLE) {
+      window.StudyRPCloud?.sair();
+      localStorage.removeItem(CHAVE_SESSAO);
+      location.reload();
+      return;
     }
-    gravar(CHAVE_SESSAO, userKey);
-    location.reload();
+    if (usuarioGoogle) window.StudyRPCloud?.sair().catch(() => { $("auErro").textContent = "Não foi possível sair do Google."; });
+    tela("auth");
+  }
+
+  function conectarContaSocial(destino = "dev") {
+    if (SESSAO_GOOGLE && usuarioGoogle) {
+      sessionStorage.setItem("studyrp-retorno", destino);
+      void consultarPerfilGoogle(usuarioGoogle, true);
+      return;
+    }
+    const linkWeb = $("auth").querySelector("a.gbtn");
+    if (linkWeb) { linkWeb.click(); return; }
+    sessionStorage.setItem("studyrp-conectando", SESSAO || "login");
+    sessionStorage.setItem("studyrp-retorno", destino);
+    tela("auth");
+    $("credenciais").hidden = false;
+    $("painelGoogle").hidden = true;
+    $("cancelarConexao").hidden = !SESSAO;
+    $("conexaoLocalMsg").textContent = "";
+    if (window.StudyRPCloud) void window.StudyRPCloud.entrarComGoogle();
+    else $("conexaoLocalMsg").textContent = "O login Google ainda não carregou. Confira a conexão e toque em Continuar com o Google.";
+  }
+
+  function painelPerfilGoogle(modo, texto = "") {
+    tela("auth");
+    $("credenciais").hidden = true;
+    $("painelGoogle").hidden = false;
+    $("estadoPerfilGoogle").textContent = texto;
+    $("googleProfileForm").hidden = modo !== "cadastro";
+    $("repetirPerfilGoogle").hidden = modo !== "erro";
+    $("voltarPerfilGoogle").textContent = SESSAO ? "Voltar para minha conta" : "Usar outra conta";
+  }
+
+  function mensagemPerfil(erro) {
+    if (!navigator.onLine || erro.code === "unavailable" || erro.code === "auth/network-request-failed") {
+      return "Sem conexão para sincronizar o perfil. Tente novamente quando estiver online.";
+    }
+    if (erro.code === "permission-denied") return "O servidor não autorizou a sincronização do perfil desta conta.";
+    return erro.code ? "Não foi possível sincronizar seu perfil. Tente novamente." : (erro.message || "Não foi possível carregar seu perfil.");
+  }
+
+  function atualizarPreviaGoogle() {
+    const usuario = $("gpUser").value.trim().toLowerCase() || "nome_de_usuario";
+    $("gpPreviewName").textContent = $("gpName").value.trim() || usuario;
+    $("gpPreviewUser").textContent = "@" + usuario;
+  }
+
+  function prepararCadastroGoogle(user) {
+    const sugestao = (user.email || "").split("@")[0].toLowerCase().replace(/[^a-z0-9._]/g, "").slice(0, 20);
+    const usuarioLocal = SESSAO && /^[a-z0-9._]{2,20}$/.test(dados.usuario) ? dados.usuario : "";
+    $("gpUser").value = usuarioLocal || sugestao;
+    $("gpName").value = (SESSAO ? dados.nome : user.displayName || "").slice(0, 24);
+    $("gpPhone").value = SESSAO ? dados.telefone || "" : "";
+    $("gpError").textContent = "";
+    $("gpSave").disabled = false;
+    atualizarPreviaGoogle();
+    painelPerfilGoogle("cadastro", user.email || "");
+    $("gpUser").focus();
+  }
+
+  function usarPerfilGoogle(user, perfilCloud) {
+    const chave = "google_" + user.uid;
+    const todas = contas();
+    todas[chave] = { provider: "google", uid: user.uid, email: user.email || "" };
+    let anterior = {};
+    try { anterior = JSON.parse(ler("studyrp-perfil-" + chave)) || {}; } catch {}
+    const perfil = { ...anterior, uidCloud: user.uid, usuario: perfilCloud.usuario, nome: perfilCloud.nome || perfilCloud.usuario,
+      telefone: perfilCloud.telefone || "", fotoCloud: perfilCloud.foto || "", foto: anterior.foto || perfilCloud.foto || "",
+      desde: anterior.desde || new Date().toISOString() };
+    gravar(CHAVE_CONTAS, JSON.stringify(todas));
+    gravar("studyrp-perfil-" + chave, JSON.stringify(perfil));
+    gravar(CHAVE_SESSAO, chave);
+    sessionStorage.removeItem("studyrp-conectando");
+    if (SESSAO !== chave) { location.reload(); return; }
+    Object.assign(dados, perfil);
+    pintar();
+    abrirSessao();
+  }
+
+  async function consultarPerfilGoogle(user, forcar = false) {
+    if (!user?.uid || !window.StudyRPCloud) return;
+    const mesmoUsuario = usuarioGoogle?.uid === user.uid;
+    usuarioGoogle = user;
+    if (SESSAO && !SESSAO_GOOGLE && sessionStorage.getItem("studyrp-conectando") !== SESSAO) return;
+    if (mesmoUsuario && !forcar && (carregandoPerfil || !$("googleProfileForm").hidden)) return;
+    // Restaurar uma sessão local só depois que o SDK confirmar o mesmo UID.
+    if (!forcar && SESSAO === "google_" + user.uid && dados.uidCloud === user.uid) {
+      if (telaAtual === "auth") abrirSessao();
+      return;
+    }
+    const consulta = ++consultaGoogle;
+    carregandoPerfil = true;
+    painelPerfilGoogle("aguarde", "Buscando seu perfil…");
+    try {
+      const perfil = await window.StudyRPCloud.getProfile(user.uid);
+      if (consulta !== consultaGoogle) return;
+      if (perfil?.usuario) usarPerfilGoogle(user, perfil);
+      else prepararCadastroGoogle(user);
+    } catch (erro) {
+      if (consulta === consultaGoogle) painelPerfilGoogle("erro", mensagemPerfil(erro));
+    } finally {
+      if (consulta === consultaGoogle) carregandoPerfil = false;
+    }
+  }
+
+  $("gpUser").oninput = $("gpName").oninput = atualizarPreviaGoogle;
+  $("googleProfileForm").onsubmit = async event => {
+    event.preventDefault();
+    const user = usuarioGoogle;
+    const consulta = consultaGoogle;
+    if (!user || $("gpSave").disabled) return;
+    const usuario = $("gpUser").value.trim().toLowerCase();
+    if (!/^[a-z0-9._]{2,20}$/.test(usuario)) {
+      $("gpError").textContent = "Use de 2 a 20 letras minúsculas, números, pontos ou sublinhados."; return;
+    }
+    $("gpError").textContent = "";
+    $("gpSave").disabled = true;
+    try {
+      const perfil = await window.StudyRPCloud.saveProfile(user.uid, {
+        usuario, nomeExibido: $("gpName").value.trim(), telefone: $("gpPhone").value.trim(), foto: user.photoURL || ""
+      });
+      if (consulta === consultaGoogle) usarPerfilGoogle(user, perfil);
+    } catch (erro) {
+      if (consulta === consultaGoogle) $("gpError").textContent = mensagemPerfil(erro);
+    } finally { $("gpSave").disabled = false; }
+  };
+  $("cancelarConexao").onclick = $("voltarPerfilGoogle").onclick = voltarDaConexao;
+  $("repetirPerfilGoogle").onclick = () => {
+    if (usuarioGoogle) void consultarPerfilGoogle(usuarioGoogle, true);
+    else location.reload();
+  };
+  window.addEventListener("studyrp:google-user", event => { void consultarPerfilGoogle(event.detail); });
+  window.addEventListener("studyrp:google-signed-out", () => {
+    usuarioGoogle = null;
+    ++consultaGoogle;
+    carregandoPerfil = false;
+    if (excluindoConta) return;
+    if (SESSAO_GOOGLE && ler(CHAVE_SESSAO) === SESSAO) {
+      localStorage.removeItem(CHAVE_SESSAO);
+      location.reload();
+    } else if (!SESSAO) { $("painelGoogle").hidden = true; $("credenciais").hidden = false; }
   });
   window.addEventListener("studyrp:signout-complete", () => {
-    try { localStorage.removeItem(CHAVE_SESSAO); } catch (e) {}
+    localStorage.removeItem(CHAVE_SESSAO);
     location.reload();
   });
+  window.addEventListener("studyrp:signout-error", () => toast("Não foi possível sair. Confira sua conexão."));
 
   // botão "voltar" do Android (usado pelo app em APK)
   window.androidBack = function () {
+    if (avisoResolver.open) { avisoResolver.close(); return true; }
     if (!$("sheetBg").classList.contains("hidden")) { fecharSheets(); return true; }
     switch (telaAtual) {
       case "perfil": if ($("edit").style.display !== "none") modoPerfil(false); else tela("app"); return true;
@@ -1041,6 +1363,7 @@
       case "sub": renderConfig(); tela("config"); return true;
       case "qr": fecharQR(); return true;
       case "status": fecharStatus(); return true;
+      case "turmasDev": $("voltarTurmasDev").click(); return true;
       case "cargos": tela(origemCargos || "config"); return true;
       case "picker": if (ler(CHAVE)) { tela("app"); return true; } return false;
       default: return false;
@@ -1091,12 +1414,19 @@
   ["inNome", "inBio"].forEach(id => $(id).addEventListener("input", atualizarEdicao));
   $("limparNome").addEventListener("click", () => { $("inNome").value = ""; atualizarEdicao(); $("inNome").focus(); });
   $("cancelar").addEventListener("click", () => { modoPerfil(false); pintar(); });
-  $("salvar").addEventListener("click", () => {
-    dados.nome = $("inNome").value.trim() || "RPYT";
-    dados.bio = $("inBio").value.trim();
-    dados.foto = pendente;
-    gravar(CHAVE_PERFIL, JSON.stringify(dados));
-    pintar(); modoPerfil(false); toast("Perfil salvo");
+  $("salvar").addEventListener("click", async event => {
+    const botao = event.currentTarget;
+    if (botao.disabled) return;
+    botao.disabled = true;
+    try {
+      const nome = $("inNome").value.trim() || usuarioAtual();
+      if (nome !== dados.nome) await alterarPerfilConta({ nome });
+      dados.bio = $("inBio").value.trim();
+      dados.foto = pendente;
+      gravar(CHAVE_PERFIL, JSON.stringify(dados));
+      pintar(); modoPerfil(false); toast("Perfil salvo");
+    } catch (erro) { abrirInfo("Perfil não salvo", mensagemPerfil(erro)); }
+    finally { botao.disabled = false; }
   });
 
   $("rmFoto").addEventListener("click", () => { pendente = ""; aplicarFoto(""); });
@@ -1122,6 +1452,15 @@
   verificarExpira();
   pintar();
   tempoInicio = Math.round(performance.now());
-  const salvo = ler(CHAVE);
+  function abrirSessao() {
+    const salvo = ler(CHAVE);
+    if (!["1", "2", "3"].includes(salvo)) { tela("picker"); return; }
+    abrirApp(salvo);
+  }
   if (!SESSAO) tela("auth");
-  else if (salvo === "1" || salvo === "2") abrirApp(salvo); else tela("picker");
+  else if (SESSAO_GOOGLE) {
+    painelPerfilGoogle("aguarde", "Verificando sua conta…");
+    setTimeout(() => {
+      if (!window.StudyRPCloud && telaAtual === "auth") painelPerfilGoogle("erro", "O login Google não carregou. Verifique sua conexão.");
+    }, 8000);
+  } else abrirSessao();

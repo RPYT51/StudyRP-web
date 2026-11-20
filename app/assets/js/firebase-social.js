@@ -1,7 +1,16 @@
 import {
-  getFirestore, doc, getDoc, collection, getDocs, setDoc, addDoc,
+  getFirestore, doc, getDocFromServer, collection, getDocsFromServer, setDoc, addDoc,
   query, orderBy, limit, serverTimestamp, Timestamp, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+export function prepararConvite(db, classId, uid) {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const codigo = Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+  return {
+    ref: doc(db, "classInvites", codigo),
+    dados: { classId, createdBy: uid, expiresAt: Timestamp.fromMillis(Date.now() + 23 * 3_600_000) }
+  };
+}
 
 export function iniciarSocial(app, auth) {
   const db = getFirestore(app);
@@ -9,14 +18,14 @@ export function iniciarSocial(app, auth) {
   async function usuario() {
     await auth.authStateReady();
     const user = auth.currentUser;
-    if (!user || localStorage.getItem("studyrp-sessao") !== "google_" + user.uid) throw new Error("Entre com Google para usar os recursos compartilhados.");
-    const profile = await getDoc(doc(db, "profiles", user.uid));
-    if (!profile.exists()) throw new Error("Complete seu cadastro na nuvem primeiro.");
+    if (!user || localStorage.getItem("studyrp-sessao") !== "google_" + user.uid) throw Object.assign(new Error("Entre com o Google para compartilhar dados entre dispositivos."), { code: "conta/sessao" });
+    const profile = await getDocFromServer(doc(db, "profiles", user.uid));
+    if (!profile.exists()) throw Object.assign(new Error("Escolha seu nome de usuário para usar os recursos compartilhados."), { code: "conta/perfil" });
     return { uid: user.uid, username: profile.data().usuario };
   }
 
   async function turma(uid) {
-    const membership = await getDoc(doc(db, "classMemberships", uid));
+    const membership = await getDocFromServer(doc(db, "classMemberships", uid));
     return membership.exists() ? membership.data().classId : null;
   }
 
@@ -28,27 +37,33 @@ export function iniciarSocial(app, auth) {
   }
 
   async function listar(ref, campo, ordem = "asc") {
-    const snap = await getDocs(query(ref, orderBy(campo, ordem), limit(50)));
+    const snap = await getDocsFromServer(query(ref, orderBy(campo, ordem), limit(50)));
     return snap.docs.map(item => ({ ...item.data(), id: item.id }));
   }
 
-  async function podeConvidar(uid, classId) {
-    const [global, local] = await Promise.all([
-      getDoc(doc(db, "systemRoles", uid)), getDoc(doc(db, "classes", classId, "roles", uid))
+  async function podeConvidar() {
+    const { uid, classId } = await turmaAtual();
+    const [global, local, sessao] = await Promise.all([
+      getDocFromServer(doc(db, "systemRoles", uid)),
+      getDocFromServer(doc(db, "classes", classId, "roles", uid)),
+      getDocFromServer(doc(db, "devSessions", uid))
     ]);
     const role = global.data();
+    const inicioDev = sessao.data()?.startedAt?.toMillis();
     return local.data()?.role === "presidente" || role?.role === "dono" ||
-      (role?.role === "dev" && role.expiresAt?.toMillis() > Date.now());
+      (role?.role === "dev" && role.expiresAt?.toMillis() > Date.now()) ||
+      (Number.isFinite(inicioDev) && inicioDev + 6 * 3_600_000 > Date.now());
   }
 
   window.StudyRPSocial = {
+    podeConvidar,
     async listarAmigos() {
       const { uid } = await usuario();
       return listar(collection(db, "social", uid, "friends"), "username");
     },
     async adicionarAmigo(nome) {
       const { uid } = await usuario();
-      const found = await getDoc(doc(db, "usernames", nome));
+      const found = await getDocFromServer(doc(db, "usernames", nome));
       if (!found.exists()) throw new Error("Nome de usuário não encontrado.");
       const friendUid = found.data().uid;
       if (friendUid === uid) throw new Error("Selecione outra conta.");
@@ -58,24 +73,21 @@ export function iniciarSocial(app, auth) {
       const { uid } = await usuario();
       const classId = await turma(uid);
       if (!classId) return null;
-      const info = await getDoc(doc(db, "classes", classId));
+      const info = await getDocFromServer(doc(db, "classes", classId));
       if (!info.exists()) throw new Error("A turma não está disponível.");
-      return { ...info.data(), id: classId, podeConvidar: await podeConvidar(uid, classId) };
+      return { ...info.data(), id: classId };
     },
     async entrarTurma(code) {
       const { uid } = await usuario();
-      const invite = await getDoc(doc(db, "classInvites", code));
+      const invite = await getDocFromServer(doc(db, "classInvites", code));
       if (!invite.exists() || invite.data().expiresAt.toMillis() <= Date.now()) throw new Error("Convite inválido ou expirado.");
       await setDoc(doc(db, "classMemberships", uid), { classId: invite.data().classId, inviteCode: code });
     },
     async criarConvite() {
       const { uid, classId } = await turmaAtual();
-      if (!await podeConvidar(uid, classId)) throw new Error("Sua conta não pode gerar convites nesta turma.");
-      const code = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, "0")).join("");
-      await setDoc(doc(db, "classInvites", code), {
-        classId, createdBy: uid, expiresAt: Timestamp.fromMillis(Date.now() + 23 * 60 * 60 * 1000)
-      });
-      return code;
+      const convite = prepararConvite(db, classId, uid);
+      await setDoc(convite.ref, convite.dados);
+      return convite.ref.id;
     },
     async listarAtividades() {
       const { classId } = await turmaAtual();
